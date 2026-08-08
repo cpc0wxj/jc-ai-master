@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: agentscope-ai
+
+agentscope:
+  dashscope:
+    api-key: sk-482d4d1c0c8f498785e5ad96d3ae6861   # 优先读环境变量，没有则用冒号后的默认值
+    model-name: qwen-turbo
