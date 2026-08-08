@@ -25,8 +25,8 @@ spring:
   # ========== Redis ==========
   data:
     redis:
-      host: 117.72.56.40
-      port: 6379
+      host: 127.0.0.1
+      port: 16379
       # password:    # 如果 Redis 设了密码就打开这行
       database: 1
       lettuce:

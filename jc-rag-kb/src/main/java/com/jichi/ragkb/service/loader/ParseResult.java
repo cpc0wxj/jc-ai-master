@@ -1,41 +1,39 @@
 package com.jichi.ragkb.service.loader;
-
-import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 
 import java.util.List;
+import java.util.Objects;
 
-@Data
-@Builder
+@Getter
+@Setter
+@Accessors(chain = true)
 public class ParseResult {
-
     /**
      * 解析是否成功
      */
     private boolean success;
-
     /**
      * 错误信息（success=false 时有值）
      */
     private String errorMsg;
-
     /**
      * 解析出的页面列表（PDF 按页，其他格式整体算一页）
      */
-    private List<PageContent> pages;
-
+    private List<PageContent> pageContentList;
     /**
      * 文档总页数
      */
-    private int totalPages;
-
+    private int totalPageNum;
     /**
      * 文档标题（如果能识别）
      */
     private String title;
 
-    @Data
-    @Builder
+    @Getter
+    @Setter
+    @Accessors(chain = true)
     public static class PageContent {
         /**
          * 页码（1-based）
@@ -52,19 +50,21 @@ public class ParseResult {
     }
 
     public static ParseResult failure(String errorMsg) {
-        return ParseResult.builder()
-                .success(false)
-                .errorMsg(errorMsg)
-                .pages(List.of())
-                .build();
+        return new ParseResult()
+                .setSuccess(false)
+                .setErrorMsg(errorMsg)
+                .setPageContentList(List.of());
     }
 
     /**
      * 获取所有页的合并文本
      */
     public String getFullText() {
-        if (pages == null) return "";
-        return pages.stream()
+        if (Objects.isNull(pageContentList)) {
+            return "";
+        }
+
+        return pageContentList.stream()
                 .map(PageContent::getText)
                 .filter(t -> t != null && !t.isBlank())
                 .reduce("", (a, b) -> a + "\n\n" + b)
