@@ -48,8 +48,8 @@ public class DocxParseHandler implements DocumentParseHandler {
             StringBuilder currentSection = new StringBuilder();
             // 当前节的标题（如果有）
             String currentTitle = null;
-            // 已保存的节数量计数器
-            int sectionCount = 0;
+            // 已保存的节数量计数器，初始值为 1
+            int sectionCount = 1;
 
             for (IBodyElement iBodyElement : xwpfDocument.getBodyElements()) {
                 // 若当前元素为段落类型
@@ -73,9 +73,8 @@ public class DocxParseHandler implements DocumentParseHandler {
                         if (currentSection.length() > 200) {
                             // 创建新节的内容对象
                             ParseResult.PageContent pageContent = new ParseResult.PageContent()
-                                    // 使用前缀递增 (++sectionCount)，先让节编号 +1，再将新值设为页码
-                                    // 这样第一个节的页码是 1，第二个节是 2，以此类推
-                                    .setPageNum(++sectionCount)
+                                    // 使用后缀递增 (sectionCount++)，先传递当前节号给 setPageNum，然后再递增
+                                    .setPageNum(sectionCount++)
                                     // 节内容去除首尾空白
                                     .setText(currentSection.toString().strip())
                                     // 设置节的标题
@@ -121,8 +120,7 @@ public class DocxParseHandler implements DocumentParseHandler {
             // 循环结束后，保存最后一个未保存的节
             if (StringUtils.isNotBlank(currentSection)) {
                 ParseResult.PageContent pageContent = new ParseResult.PageContent()
-                        // 使用前缀递增 (++sectionCount)，保证页码从 1 开始计数
-                        .setPageNum(++sectionCount)
+                        .setPageNum(sectionCount)
                         .setText(currentSection.toString().strip())
                         .setSectionTitle(currentTitle);
                 pageContentList.add(pageContent);
