@@ -1,10 +1,14 @@
 package com.jichi.ragkb.service.handler.parse;
 
+import cn.hutool.core.collection.CollUtil;
+import com.google.common.collect.Lists;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.enums.SupportedFileType;
 import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.compress.utils.Lists;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -12,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,24 +34,22 @@ public class PdfParseHandler implements DocumentParseHandler {
     }
 
     @Override
+    @SneakyThrows
     public ParseResult parse(String fileName, InputStream inputStream) {
-        // PDFBox 3.x 弃用了 PDDocument.load(InputStream)，改用 Loader.loadPDF()
-        try (PDDocument document = Loader.loadPDF(inputStream.readAllBytes())) {
-            int totalPageNum = document.getNumberOfPages();
-
-            PDFTextStripper stripper = new PDFTextStripper();
-            stripper.setSortByPosition(true);  // 按位置排序，处理多栏布局
-
+        try (PDDocument pdDocument = Loader.loadPDF(inputStream.readAllBytes())) {
             List<ParseResult.PageContent> pageContentList = Lists.newArrayList();
-            for (int pageNum = 1; pageNum <= totalPageNum; pageNum++) {
+            for (int pageNum = 1; pageNum <= pdDocument.getNumberOfPages(); pageNum++) {
                 try {
-                    stripper.setStartPage(pageNum);
-                    stripper.setEndPage(pageNum);
-                    String text = stripper.getText(document);
+                    PDFTextStripper pdfTextStripper = new PDFTextStripper();
+                    pdfTextStripper.setSortByPosition(true);  // 按位置排序，处理多栏布局
+                    pdfTextStripper.setStartPage(pageNum);
+                    pdfTextStripper.setEndPage(pageNum);
+                    String text = pdfTextStripper.getText(pdDocument);
+
                     text = cleanText(text);
 
-                    if (text.isBlank()) {
-                        log.debug("[PDF解析] 第{}页内容为空，可能是图片页，跳过", pageNum);
+                    if (StringUtils.isBlank(text)) {
+                        log.info("PdfParseHandler.parse 解析内容为空 pageNum={}", pageNum);
                         continue;
                     }
 
@@ -57,24 +60,21 @@ public class PdfParseHandler implements DocumentParseHandler {
                     pageContentList.add(pageContent);
                 } catch (Exception e) {
                     // 单页解析失败不影响其他页
-                    log.warn("[PDF解析] 第{}页解析失败：{}", pageNum, e.getMessage());
+                    log.warn("PdfParseHandler.parse 解析失败 pageNum={},message={}", pageNum, e.getMessage());
                 }
             }
 
-            log.info("[PDF解析] 文件={}，总页数={}，有效页数={}", fileName, totalPageNum, pageContentList.size());
+            log.info("PdfParseHandler.parse fileName={},pageNum={},pageSize={}", fileName, pdDocument.getNumberOfPages(), pageContentList.size());
 
-            if (pageContentList.isEmpty()) {
+            if (CollectionUtils.isEmpty(pageContentList)) {
                 return ParseResult.failure("PDF 解析后无有效文本内容，可能是纯图片 PDF，需要 OCR 处理");
             }
 
             return new ParseResult()
                     .setSuccess(true)
                     .setPageContentList(pageContentList)
-                    .setTotalPageNum(totalPageNum)
+                    .setTotalPageNum(pdDocument.getNumberOfPages())
                     .setTitle(extractTitle(pageContentList));
-        } catch (Exception e) {
-            log.error("[PDF解析] 文件={}，解析失败：{}", fileName, e.getMessage(), e);
-            return ParseResult.failure("PDF 解析失败：" + e.getMessage());
         }
     }
 
@@ -82,14 +82,16 @@ public class PdfParseHandler implements DocumentParseHandler {
      * 清理 PDF 解析出的文本：去除多余空白、修复换行
      */
     private String cleanText(String raw) {
-        if (raw == null) {
+        if (Objects.isNull(raw)) {
             return "";
         }
 
         return raw.replaceAll("\\r\\n", "\n")
                 .replaceAll("\\r", "\n")
-                .replaceAll("[ \\t]+", " ")          // 多个空格合并
-                .replaceAll("\\n{3,}", "\n\n")        // 多个空行合并为两个
+                // 多个空格合并
+                .replaceAll("[ \\t]+", " ")
+                // 多个空行合并为两个
+                .replaceAll("\\n{3,}", "\n\n")
                 .strip();
     }
 
@@ -113,15 +115,16 @@ public class PdfParseHandler implements DocumentParseHandler {
     /**
      * 取第一页文本的第一行作为文档标题
      */
-    private String extractTitle(List<ParseResult.PageContent> pages) {
-        if (pages.isEmpty()) {
+    private String extractTitle(List<ParseResult.PageContent> pageContentList) {
+        if (CollectionUtils.isEmpty(pageContentList)) {
             return null;
         }
 
-        String[] lines = pages.get(0).getText().split("\n");
+        ParseResult.PageContent pageContent = CollUtil.getFirst(pageContentList);
+        String[] lines = pageContent.getText().split("\n");
         for (String line : lines) {
             line = line.strip();
-            if (!line.isBlank() && line.length() < 100) {
+            if (StringUtils.isNotBlank(line) && line.length() < 100) {
                 return line;
             }
         }
