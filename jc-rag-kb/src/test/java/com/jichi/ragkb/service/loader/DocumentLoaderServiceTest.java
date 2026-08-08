@@ -1,6 +1,6 @@
 package com.jichi.ragkb.service.loader;
 
-import com.jichi.ragkb.service.DocumentLoaderService;
+import com.jichi.ragkb.manager.loader.DocumentLoaderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -17,7 +17,7 @@ class DocumentLoaderServiceTest {
     private DocumentLoaderService loaderService;
 
     private String extractText(ParseResult result) {
-        return result.getPages().stream()
+        return result.getPageContentList().stream()
                 .map(ParseResult.PageContent::getText)
                 .collect(java.util.stream.Collectors.joining("\n"));
     }

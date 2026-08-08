@@ -1,29 +1,24 @@
-package com.jichi.ragkb.service;
+package com.jichi.ragkb.manager.loader;
 
-import com.jichi.ragkb.service.loader.*;
+import cn.hutool.core.collection.CollStreamUtil;
+import com.jichi.ragkb.service.loader.ParseResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+import java.util.Objects;
 
-@Service
 @Slf4j
+@Service
 public class DocumentLoaderService {
-
-    private final Map<String, DocumentParser> parsers;
+    private final Map<String, DocumentParser> parserMap;
 
     public DocumentLoaderService(List<DocumentParser> parserList) {
         // 注入所有解析器实现，按 supportedType 建立索引
-        this.parsers = parserList.stream()
-                .collect(Collectors.toMap(
-                        p -> p.supportedType().toUpperCase(),
-                        Function.identity()
-                ));
-        log.info("已加载文档解析器：{}", parsers.keySet());
+        this.parserMap = CollStreamUtil.toIdentityMap(parserList, temp -> temp.supportedType().toUpperCase());
+        log.info("已加载文档解析器：{}", parserMap.keySet());
     }
 
     /**
@@ -35,12 +30,11 @@ public class DocumentLoaderService {
      */
     public ParseResult load(InputStream inputStream, String fileName) {
         String fileType = detectFileType(fileName).toUpperCase();
-        DocumentParser parser = parsers.get(fileType);
+        DocumentParser parser = parserMap.get(fileType);
 
-        if (parser == null) {
+        if (Objects.isNull(parser)) {
             log.warn("[文档加载] 不支持的文件类型：{}，文件：{}", fileType, fileName);
-            return ParseResult.failure("不支持的文件类型：" + fileType +
-                    "，目前支持：PDF / DOCX / MD / TXT");
+            return ParseResult.failure("不支持的文件类型：" + fileType + "，目前支持：PDF / DOCX / MD / TXT");
         }
 
         log.info("[文档加载] 开始解析：fileName={}，type={}", fileName, fileType);
@@ -50,11 +44,9 @@ public class DocumentLoaderService {
 
         long elapsed = System.currentTimeMillis() - start;
         if (result.isSuccess()) {
-            log.info("[文档加载] 解析完成：fileName={}，页数={}，耗时={}ms",
-                    fileName, result.getTotalPages(), elapsed);
+            log.info("[文档加载] 解析完成：fileName={}，页数={}，耗时={}ms", fileName, result.getTotalPageNum(), elapsed);
         } else {
-            log.warn("[文档加载] 解析失败：fileName={}，原因={}",
-                    fileName, result.getErrorMsg());
+            log.warn("[文档加载] 解析失败：fileName={}，原因={}", fileName, result.getErrorMsg());
         }
 
         return result;
@@ -66,10 +58,10 @@ public class DocumentLoaderService {
         if (dotIndex < 0) return "UNKNOWN";
         String ext = fileName.substring(dotIndex + 1).toLowerCase();
         return switch (ext) {
-            case "pdf"  -> "PDF";
+            case "pdf" -> "PDF";
             case "docx" -> "DOCX";
             case "md", "markdown" -> "MD";
-            case "txt"  -> "TXT";
+            case "txt" -> "TXT";
             default -> ext.toUpperCase();
         };
     }

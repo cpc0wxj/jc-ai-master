@@ -1,9 +1,10 @@
-package com.jichi.ragkb.service.loader;
+package com.jichi.ragkb.manager.loader;
+
+import com.jichi.ragkb.service.loader.ParseResult;
 
 import java.io.InputStream;
 
 public interface DocumentParser {
-
     /**
      * 支持的文件类型（大写），如 "PDF"、"DOCX"
      */

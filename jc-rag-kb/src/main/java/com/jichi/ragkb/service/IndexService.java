@@ -1,13 +1,13 @@
 package com.jichi.ragkb.service;
 
 import com.jichi.ragkb.entity.*;
+import com.jichi.ragkb.manager.loader.DocumentLoaderService;
 import com.jichi.ragkb.repository.*;
 import com.jichi.ragkb.service.loader.ParseResult;
 import com.jichi.ragkb.service.splitter.ChunkResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
