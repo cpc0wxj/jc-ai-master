@@ -20,19 +20,37 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * PDF 文件解析处理器
+ * 负责解析 PDF 文件内容，提取文本、识别章节标题和文档标题
+ */
 @Slf4j
 @Component
 public class PdfParseHandler implements DocumentParseHandler {
     /**
-     * 识别章节标题：以"第X章"/"第X节"/"一、"/"1."等开头的行
+     * 章节标题正则模式
+     * 匹配以下格式的章节标题:
+     * 示例匹配:
+     * 第一章 引言
+     * 第二节 背景介绍
+     * 一、概述
+     * 1. 基本概念
      */
     private static final Pattern HEADING_PATTERN = Pattern.compile("^(第[一二三四五六七八九十百\\d]+[章节]|[一二三四五六七八九十]+、|\\d+\\.)\\s*.+");
 
+    /**
+     * 获取支持的文件类型
+     *
+     * @return SupportedFileType.PDF 表示此处理器专门用于解析 PDF 文件
+     */
     @Override
     public SupportedFileType getSupportedFileType() {
         return SupportedFileType.PDF;
     }
 
+    /**
+     * 解析 PDF 文件内容
+     */
     @Override
     @SneakyThrows
     public ParseResult parse(String fileName, InputStream inputStream) {
@@ -40,12 +58,16 @@ public class PdfParseHandler implements DocumentParseHandler {
             List<ParseResult.PageContent> pageContentList = Lists.newArrayList();
             for (int pageNum = 1; pageNum <= pdDocument.getNumberOfPages(); pageNum++) {
                 try {
+                    // 创建独立的 PDFTextStripper 实例用于每一页
                     PDFTextStripper pdfTextStripper = new PDFTextStripper();
-                    pdfTextStripper.setSortByPosition(true);  // 按位置排序，处理多栏布局
+                    // 设置按位置排序，正确处理多栏布局的文本顺序
+                    pdfTextStripper.setSortByPosition(true);
+                    // 设置只提取当前页的文本
                     pdfTextStripper.setStartPage(pageNum);
                     pdfTextStripper.setEndPage(pageNum);
                     String text = pdfTextStripper.getText(pdDocument);
 
+                    // 清理文本：统一格式、去除多余空白
                     text = cleanText(text);
 
                     if (StringUtils.isBlank(text)) {
@@ -53,81 +75,109 @@ public class PdfParseHandler implements DocumentParseHandler {
                         continue;
                     }
 
+                    // 构建页面内容对象
+                    String sectionTitle = detectHeading(text);
                     ParseResult.PageContent pageContent = new ParseResult.PageContent()
                             .setPageNum(pageNum)
                             .setText(text)
-                            .setSectionTitle(detectHeading(text));
+                            .setSectionTitle(sectionTitle);
                     pageContentList.add(pageContent);
-                } catch (Exception e) {
-                    // 单页解析失败不影响其他页
+                }
+                // 单页解析失败不影响其他页面，继续处理后续页面
+                catch (Exception e) {
                     log.warn("PdfParseHandler.parse 解析失败 pageNum={},message={}", pageNum, e.getMessage());
                 }
             }
 
             log.info("PdfParseHandler.parse fileName={},pageNum={},pageSize={}", fileName, pdDocument.getNumberOfPages(), pageContentList.size());
 
+            // 若无有效页面
             if (CollectionUtils.isEmpty(pageContentList)) {
                 return ParseResult.failure("PDF 解析后无有效文本内容，可能是纯图片 PDF，需要 OCR 处理");
             }
 
+            String title = extractTitle(pageContentList);
             return new ParseResult()
                     .setSuccess(true)
-                    .setPageContentList(pageContentList)
-                    .setTotalPageNum(pdDocument.getNumberOfPages())
-                    .setTitle(extractTitle(pageContentList));
+                    .setPageContentList(pageContentList)  // 所有有效页面的内容列表
+                    .setTotalPageNum(pdDocument.getNumberOfPages())  // PDF 总页数
+                    .setTitle(title);  // 提取文档标题
         }
     }
 
     /**
-     * 清理 PDF 解析出的文本：去除多余空白、修复换行
+     * 清理 PDF 解析出的原始文本
+     *
+     * @param raw 原始文本
+     * @return 清理后的规范化文本
      */
     private String cleanText(String raw) {
         if (Objects.isNull(raw)) {
-            return "";
+            return "";  // 空文本返回空字符串
         }
 
-        return raw.replaceAll("\\r\\n", "\n")
+        return raw
+                // Windows 换行符转 Unix 风格
+                .replaceAll("\\r\\n", "\n")
+                // Mac 经典换行符转 Unix 风格
                 .replaceAll("\\r", "\n")
-                // 多个空格合并
+                // 多个空格或制表符合并为单个空格
                 .replaceAll("[ \\t]+", " ")
-                // 多个空行合并为两个
-                .replaceAll("\\n{3,}", "\n\n")
-                .strip();
+                // 连续 3 个或以上空行合并为 2 个空行 (保留段落分隔)
+                .replaceAll("\n{3,}", "\n\n")
+                .strip();  // 去除首尾空白
     }
 
     /**
-     * 从文本开头几行识别章节标题
+     * 检测文本是否包含章节标题
+     * <p>检查策略:</p>
+     * <ul>
+     *   <li>只检查文本的前 3 行 (章节标题通常在开头附近)</li>
+     *   <li>标题长度应在 2-50 字符之间 (过滤太短或过长的内容)</li>
+     *   <li>使用正则表达式匹配标准章节格式 (如"第一章"、"一、"等)</li>
+     * </ul>
+     *
+     * @param text 待检测的文本
+     * @return 如果检测到章节标题则返回标题文本，否则返回 null
      */
     private String detectHeading(String text) {
         String[] lines = text.split("\n");
+
+        // 遍历前 3 行 (或实际行数，取较小值)
         for (int i = 0; i < Math.min(3, lines.length); i++) {
             String line = lines[i].strip();
+            // 标题长度校验：避免误判
             if (line.length() > 2 && line.length() < 50) {
-                Matcher m = HEADING_PATTERN.matcher(line);
-                if (m.matches()) {
+                // 使用正则匹配章节标题格式
+                Matcher matcher = HEADING_PATTERN.matcher(line);
+                if (matcher.matches()) {
                     return line;
                 }
             }
         }
+
         return null;
     }
 
     /**
-     * 取第一页文本的第一行作为文档标题
+     * 从解析结果中提取文档标题
      */
     private String extractTitle(List<ParseResult.PageContent> pageContentList) {
         if (CollectionUtils.isEmpty(pageContentList)) {
-            return null;
+            return null;  // 没有解析内容，无法提取标题
         }
 
+        // 获取第一页的内容
         ParseResult.PageContent pageContent = CollUtil.getFirst(pageContentList);
         String[] lines = pageContent.getText().split("\n");
+        // 遍历第一页的每一行
         for (String line : lines) {
             line = line.strip();
+            // 找到第一个合理长度的非空行作为标题
             if (StringUtils.isNotBlank(line) && line.length() < 100) {
                 return line;
             }
         }
-        return null;
+        return null;  // 没有找到符合条件的标题
     }
 }
