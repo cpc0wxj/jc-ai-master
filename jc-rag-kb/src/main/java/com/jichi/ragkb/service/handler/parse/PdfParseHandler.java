@@ -143,7 +143,7 @@ public class PdfParseHandler implements DocumentParseHandler {
     private String detectHeading(String text) {
         String[] lines = text.split("\n");
 
-        // 遍历前 3 行 (或实际行数，取较小值)
+        // 遍历前 3 行 或实际行数，取较小值
         for (int i = 0; i < Math.min(3, lines.length); i++) {
             String line = lines[i].strip();
             // 标题长度校验：避免误判
@@ -167,10 +167,11 @@ public class PdfParseHandler implements DocumentParseHandler {
             return null;  // 没有解析内容，无法提取标题
         }
 
-        // 获取第一页的内容
+        // 获取第一页
         ParseResult.PageContent pageContent = CollUtil.getFirst(pageContentList);
         String[] lines = pageContent.getText().split("\n");
-        // 遍历第一页的每一行
+
+        // 遍历每一行
         for (String line : lines) {
             line = line.strip();
             // 找到第一个合理长度的非空行作为标题
@@ -178,6 +179,7 @@ public class PdfParseHandler implements DocumentParseHandler {
                 return line;
             }
         }
-        return null;  // 没有找到符合条件的标题
+
+        return null;
     }
 }
