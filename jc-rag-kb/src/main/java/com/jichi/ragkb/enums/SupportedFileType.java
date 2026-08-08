@@ -1,6 +1,5 @@
 package com.jichi.ragkb.enums;
 
-import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -21,15 +20,12 @@ public enum SupportedFileType {
     private final String code;
 
     /**
-     * 根据文件名解析出对应的文件类型枚举
+     * 根据后缀名匹配对应的文件类型枚举
      *
-     * @param fileName 文件名
+     * @param extName 文件后缀名（不含点）
      * @return 匹配到的枚举值；无法识别时返回 null
      */
-    public static SupportedFileType fromFileName(String fileName) {
-        String extName = FileUtil.extName(fileName);
-        extName = StrUtil.toLowerCase(extName);
-
+    public static SupportedFileType fromExtension(String extName) {
         for (SupportedFileType type : values()) {
             if (Objects.equals(extName, type.code)) {
                 return type;

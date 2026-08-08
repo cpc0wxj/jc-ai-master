@@ -1,6 +1,8 @@
 package com.jichi.ragkb.service.manager.parse;
 
 import cn.hutool.core.collection.CollStreamUtil;
+import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.StrUtil;
 import com.jichi.ragkb.enums.SupportedFileType;
 import com.jichi.ragkb.dto.ParseResult;
 import lombok.extern.slf4j.Slf4j;
@@ -30,21 +32,21 @@ public class DocumentParseManager {
      * @return ParseResult
      */
     public ParseResult load(InputStream inputStream, String fileName) {
-        SupportedFileType fileType = SupportedFileType.fromFileName(fileName);
-        DocumentParseHandler parser = parserMap.get(fileType);
+        String extName = FileUtil.extName(fileName);
+        extName = StrUtil.toLowerCase(extName);
+        SupportedFileType supportedFileType = SupportedFileType.fromExtension(extName);
+        DocumentParseHandler documentParseHandler = parserMap.get(supportedFileType);
 
-        if (Objects.isNull(parser)) {
-            String ext = extractExtension(fileName);
-            log.warn("[文档加载] 不支持的文件类型：{}，文件：{}", ext, fileName);
-            return ParseResult.failure("不支持的文件类型：" + ext + "，目前支持：PDF / DOCX / MD / TXT");
+        if (Objects.isNull(documentParseHandler)) {
+            String displayExt = StrUtil.isBlank(extName) ? "UNKNOWN" : extName;
+            return ParseResult.failure("不支持的文件类型：" + displayExt + "，目前支持：PDF / DOCX / MD / TXT");
         }
 
-        log.info("[文档加载] 开始解析：fileName={}，type={}", fileName, fileType);
         long start = System.currentTimeMillis();
-
-        ParseResult result = parser.parse(inputStream, fileName);
-
+        log.info("[文档加载] 开始解析：fileName={}，type={}", fileName, supportedFileType);
+        ParseResult result = documentParseHandler.parse(inputStream, fileName);
         long elapsed = System.currentTimeMillis() - start;
+
         if (result.isSuccess()) {
             log.info("[文档加载] 解析完成：fileName={}，页数={}，耗时={}ms", fileName, result.getTotalPageNum(), elapsed);
         } else {
@@ -52,19 +54,5 @@ public class DocumentParseManager {
         }
 
         return result;
-    }
-
-    /**
-     * 提取文件名后缀（大写），用于不支持类型的日志展示
-     */
-    private String extractExtension(String fileName) {
-        if (fileName == null) {
-            return "UNKNOWN";
-        }
-        int dotIndex = fileName.lastIndexOf('.');
-        if (dotIndex < 0) {
-            return "UNKNOWN";
-        }
-        return fileName.substring(dotIndex + 1).toUpperCase();
     }
 }
