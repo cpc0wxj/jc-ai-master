@@ -132,7 +132,7 @@ public class DocxParseHandler implements DocumentParseHandler {
             }
 
             // 记录解析成功日志，包括文件名和分的节数
-            log.info("[DOCX 解析] 文件={}, 段落分节={}节", fileName, pageContentList.size());
+            log.info("DocxParseHandler.parse fileName={},pageSize={}", fileName, pageContentList.size());
 
             // 从 Word 文档的核心属性中获取文档标题元数据
             String title;
