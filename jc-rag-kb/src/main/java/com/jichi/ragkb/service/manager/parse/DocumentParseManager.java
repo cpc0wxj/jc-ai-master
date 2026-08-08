@@ -40,14 +40,14 @@ public class DocumentParseManager {
         }
 
         long start = System.currentTimeMillis();
-        log.info("[文档加载] 开始解析：fileName={}，type={}", fileName, documentParseHandler.getSupportedFileType());
+        log.info("DocumentParseManager.load 开始解析文档 fileName={},supportedFileType={}", fileName, documentParseHandler.getSupportedFileType());
         ParseResult result = documentParseHandler.parse(inputStream, fileName);
         long elapsed = System.currentTimeMillis() - start;
 
         if (result.isSuccess()) {
-            log.info("[文档加载] 解析完成：fileName={}，页数={}，耗时={}ms", fileName, result.getTotalPageNum(), elapsed);
+            log.info("DocumentParseManager.load 文档解析完成 fileName={},totalPageNum={},elapsed={}", fileName, result.getTotalPageNum(), elapsed);
         } else {
-            log.warn("[文档加载] 解析失败：fileName={}，原因={}", fileName, result.getErrorMsg());
+            log.warn("DocumentParseManager.load 文档解析失败 fileName={},errorMsg={}", fileName, result.getErrorMsg());
         }
 
         return result;
