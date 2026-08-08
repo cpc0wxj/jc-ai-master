@@ -1,7 +1,7 @@
 package com.jichi.ragkb.service.loader;
 
+import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.service.ChunkService;
-import com.jichi.ragkb.service.loader.ParseResult;
 import com.jichi.ragkb.service.splitter.ChunkResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,14 +20,12 @@ class ChunkServiceTest {
     @Test
     void chunksNotTooLargeOrTooSmall() {
         String longText = "这是一段测试文本。".repeat(200); // 约 1800 字符
-        ParseResult result = ParseResult.builder()
-                .success(true)
-                .pages(List.of(ParseResult.PageContent.builder()
-                        .pageNum(1)
-                        .text(longText)
-                        .build()))
-                .totalPages(1)
-                .build();
+        ParseResult result = new ParseResult()
+                .setSuccess(true)
+                .setPageContentList(List.of(new ParseResult.PageContent()
+                        .setPageNum(1)
+                        .setText(longText)))
+                .setTotalPageNum(1);
 
         List<ChunkResult> chunks = chunkService.chunk(result);
 

@@ -1,4 +1,4 @@
-package com.jichi.ragkb.service.loader;
+package com.jichi.ragkb.dto;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;

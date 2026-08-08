@@ -1,6 +1,7 @@
 package com.jichi.ragkb.service.loader;
 
-import com.jichi.ragkb.manager.loader.DocumentLoaderService;
+import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.service.manager.parse.DocumentParseManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,10 +12,10 @@ import java.io.InputStream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class DocumentLoaderServiceTest {
+class DocumentParseManagerTest {
 
     @Autowired
-    private DocumentLoaderService loaderService;
+    private DocumentParseManager loaderService;
 
     private String extractText(ParseResult result) {
         return result.getPageContentList().stream()

@@ -1,6 +1,6 @@
 package com.jichi.ragkb.service;
 
-import com.jichi.ragkb.service.loader.ParseResult;
+import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.service.splitter.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +13,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class ChunkService {
-
     private final SlidingWindowChunkSplitter slidingWindowSplitter;
     private final StructureAwareChunkSplitter structureAwareSplitter;
 

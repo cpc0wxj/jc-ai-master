@@ -1,7 +1,8 @@
-package com.jichi.ragkb.handler.loader;
+package com.jichi.ragkb.service.handler.parse;
 
-import com.jichi.ragkb.manager.loader.DocumentParser;
-import com.jichi.ragkb.service.loader.ParseResult;
+import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
+import com.jichi.ragkb.enums.SupportedFileType;
+import com.jichi.ragkb.dto.ParseResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.compress.utils.Lists;
@@ -16,12 +17,12 @@ import java.util.regex.Pattern;
 
 @Component
 @Slf4j
-public class MarkdownParser implements DocumentParser {
+public class MarkdownParseHandler implements DocumentParseHandler {
     private static final Pattern HEADING_PATTERN = Pattern.compile("^#{1,3}\\s+(.+)");
 
     @Override
-    public String supportedType() {
-        return "MD";
+    public SupportedFileType getSupportedFileType() {
+        return SupportedFileType.MD;
     }
 
     @Override

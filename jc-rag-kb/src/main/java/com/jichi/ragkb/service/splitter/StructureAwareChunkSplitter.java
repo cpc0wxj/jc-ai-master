@@ -1,6 +1,6 @@
 package com.jichi.ragkb.service.splitter;
 
-import com.jichi.ragkb.service.loader.ParseResult;
+import com.jichi.ragkb.dto.ParseResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

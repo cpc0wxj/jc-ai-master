@@ -1,7 +1,8 @@
-package com.jichi.ragkb.manager.loader;
+package com.jichi.ragkb.service.manager.parse;
 
 import cn.hutool.core.collection.CollStreamUtil;
-import com.jichi.ragkb.service.loader.ParseResult;
+import com.jichi.ragkb.enums.SupportedFileType;
+import com.jichi.ragkb.dto.ParseResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -12,12 +13,12 @@ import java.util.Objects;
 
 @Slf4j
 @Service
-public class DocumentLoaderService {
-    private final Map<String, DocumentParser> parserMap;
+public class DocumentParseManager {
+    private final Map<SupportedFileType, DocumentParseHandler> parserMap;
 
-    public DocumentLoaderService(List<DocumentParser> parserList) {
+    public DocumentParseManager(List<DocumentParseHandler> parserList) {
         // 注入所有解析器实现，按 supportedType 建立索引
-        this.parserMap = CollStreamUtil.toIdentityMap(parserList, temp -> temp.supportedType().toUpperCase());
+        this.parserMap = CollStreamUtil.toIdentityMap(parserList, DocumentParseHandler::getSupportedFileType);
         log.info("已加载文档解析器：{}", parserMap.keySet());
     }
 
@@ -29,12 +30,13 @@ public class DocumentLoaderService {
      * @return ParseResult
      */
     public ParseResult load(InputStream inputStream, String fileName) {
-        String fileType = detectFileType(fileName).toUpperCase();
-        DocumentParser parser = parserMap.get(fileType);
+        SupportedFileType fileType = SupportedFileType.fromFileName(fileName);
+        DocumentParseHandler parser = parserMap.get(fileType);
 
         if (Objects.isNull(parser)) {
-            log.warn("[文档加载] 不支持的文件类型：{}，文件：{}", fileType, fileName);
-            return ParseResult.failure("不支持的文件类型：" + fileType + "，目前支持：PDF / DOCX / MD / TXT");
+            String ext = extractExtension(fileName);
+            log.warn("[文档加载] 不支持的文件类型：{}，文件：{}", ext, fileName);
+            return ParseResult.failure("不支持的文件类型：" + ext + "，目前支持：PDF / DOCX / MD / TXT");
         }
 
         log.info("[文档加载] 开始解析：fileName={}，type={}", fileName, fileType);
@@ -52,17 +54,17 @@ public class DocumentLoaderService {
         return result;
     }
 
-    private String detectFileType(String fileName) {
-        if (fileName == null) return "UNKNOWN";
+    /**
+     * 提取文件名后缀（大写），用于不支持类型的日志展示
+     */
+    private String extractExtension(String fileName) {
+        if (fileName == null) {
+            return "UNKNOWN";
+        }
         int dotIndex = fileName.lastIndexOf('.');
-        if (dotIndex < 0) return "UNKNOWN";
-        String ext = fileName.substring(dotIndex + 1).toLowerCase();
-        return switch (ext) {
-            case "pdf" -> "PDF";
-            case "docx" -> "DOCX";
-            case "md", "markdown" -> "MD";
-            case "txt" -> "TXT";
-            default -> ext.toUpperCase();
-        };
+        if (dotIndex < 0) {
+            return "UNKNOWN";
+        }
+        return fileName.substring(dotIndex + 1).toUpperCase();
     }
 }

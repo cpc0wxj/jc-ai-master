@@ -1,7 +1,8 @@
-package com.jichi.ragkb.handler.loader;
+package com.jichi.ragkb.service.handler.parse;
 
-import com.jichi.ragkb.manager.loader.DocumentParser;
-import com.jichi.ragkb.service.loader.ParseResult;
+import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
+import com.jichi.ragkb.enums.SupportedFileType;
+import com.jichi.ragkb.dto.ParseResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.pdfbox.Loader;
@@ -16,13 +17,13 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @Component
-public class PdfParser implements DocumentParser {
+public class PdfParseHandler implements DocumentParseHandler {
     // 识别章节标题：以"第X章"/"第X节"/"一、"/"1."等开头的行
     private static final Pattern HEADING_PATTERN = Pattern.compile("^(第[一二三四五六七八九十百\\d]+[章节]|[一二三四五六七八九十]+、|\\d+\\.)\\s*.+");
 
     @Override
-    public String supportedType() {
-        return "PDF";
+    public SupportedFileType getSupportedFileType() {
+        return SupportedFileType.PDF;
     }
 
     @Override

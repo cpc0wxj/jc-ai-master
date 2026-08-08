@@ -1,7 +1,8 @@
-package com.jichi.ragkb.handler.loader;
+package com.jichi.ragkb.service.handler.parse;
 
-import com.jichi.ragkb.manager.loader.DocumentParser;
-import com.jichi.ragkb.service.loader.ParseResult;
+import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
+import com.jichi.ragkb.enums.SupportedFileType;
+import com.jichi.ragkb.dto.ParseResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
@@ -14,7 +15,7 @@ import java.util.Objects;
 
 @Slf4j
 @Component
-public class TxtParser implements DocumentParser {
+public class TxtParseHandler implements DocumentParseHandler {
     /**
      * UTF-8 解码后若替换字符（U+FFFD）占比超过阈值，则判定为非 UTF-8，降级到 GBK
      */
@@ -25,8 +26,8 @@ public class TxtParser implements DocumentParser {
     private static final double BINARY_THRESHOLD = 0.05;
 
     @Override
-    public String supportedType() {
-        return "TXT";
+    public SupportedFileType getSupportedFileType() {
+        return SupportedFileType.TXT;
     }
 
     @Override

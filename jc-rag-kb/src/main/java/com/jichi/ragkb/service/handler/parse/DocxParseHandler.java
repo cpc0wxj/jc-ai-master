@@ -1,8 +1,9 @@
-package com.jichi.ragkb.handler.loader;
+package com.jichi.ragkb.service.handler.parse;
 
 import com.google.common.collect.Lists;
-import com.jichi.ragkb.manager.loader.DocumentParser;
-import com.jichi.ragkb.service.loader.ParseResult;
+import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
+import com.jichi.ragkb.enums.SupportedFileType;
+import com.jichi.ragkb.dto.ParseResult;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
@@ -15,10 +16,10 @@ import java.util.Objects;
 
 @Slf4j
 @Component
-public class DocxParser implements DocumentParser {
+public class DocxParseHandler implements DocumentParseHandler {
     @Override
-    public String supportedType() {
-        return "DOCX";
+    public SupportedFileType getSupportedFileType() {
+        return SupportedFileType.DOCX;
     }
 
     @Override
