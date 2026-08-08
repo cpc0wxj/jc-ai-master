@@ -1,9 +1,9 @@
 package com.jichi.ragkb.service.handler.parse;
 
 import com.google.common.collect.Lists;
-import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
-import com.jichi.ragkb.enums.SupportedFileType;
 import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.enums.SupportedFileType;
+import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
@@ -23,7 +23,7 @@ public class DocxParseHandler implements DocumentParseHandler {
     }
 
     @Override
-    public ParseResult parse(InputStream inputStream, String fileName) {
+    public ParseResult parse(String fileName, InputStream inputStream) {
         try (XWPFDocument xwpfDocument = new XWPFDocument(inputStream)) {
             String currentTitle = null;
             StringBuilder currentSection = new StringBuilder();

@@ -38,11 +38,10 @@ public class DocumentParseManager implements BeanPostProcessor {
     }
 
     /**
-     * 解析文档，根据文件类型自动选择解析器。
+     * 解析文档
      *
-     * @param fileName    原始文件名（用于判断类型和日志）
+     * @param fileName    原始文件名
      * @param inputStream 文件输入流
-     * @return ParseResult
      */
     public ParseResult load(String fileName, InputStream inputStream) {
         DocumentParseHandler documentParseHandler = getHandler(fileName);
@@ -54,7 +53,7 @@ public class DocumentParseManager implements BeanPostProcessor {
 
         long start = System.currentTimeMillis();
         log.info("DocumentParseManager.load 开始解析文档 fileName={},supportedFileType={}", fileName, documentParseHandler.getSupportedFileType());
-        ParseResult result = documentParseHandler.parse(inputStream, fileName);
+        ParseResult result = documentParseHandler.parse(fileName, inputStream);
         long elapsed = System.currentTimeMillis() - start;
 
         if (result.isSuccess()) {
@@ -67,10 +66,7 @@ public class DocumentParseManager implements BeanPostProcessor {
     }
 
     /**
-     * 根据文件名匹配对应的文档解析器。
-     *
-     * @param fileName 原始文件名
-     * @return 匹配到的解析器；无法识别的文件类型返回 null
+     * 根据文件名匹配对应的文档解析器
      */
     private DocumentParseHandler getHandler(String fileName) {
         String extName = StrUtil.toLowerCase(FileUtil.extName(fileName));

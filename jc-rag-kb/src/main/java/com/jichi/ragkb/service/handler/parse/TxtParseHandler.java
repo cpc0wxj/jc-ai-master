@@ -31,7 +31,7 @@ public class TxtParseHandler implements DocumentParseHandler {
     }
 
     @Override
-    public ParseResult parse(InputStream inputStream, String fileName) {
+    public ParseResult parse(String fileName, InputStream inputStream) {
         try {
             byte[] bytes = inputStream.readAllBytes();
 

@@ -1,8 +1,8 @@
 package com.jichi.ragkb.service.handler.parse;
 
-import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
-import com.jichi.ragkb.enums.SupportedFileType;
 import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.enums.SupportedFileType;
+import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.pdfbox.Loader;
@@ -18,7 +18,9 @@ import java.util.regex.Pattern;
 @Slf4j
 @Component
 public class PdfParseHandler implements DocumentParseHandler {
-    // 识别章节标题：以"第X章"/"第X节"/"一、"/"1."等开头的行
+    /**
+     * 识别章节标题：以"第X章"/"第X节"/"一、"/"1."等开头的行
+     */
     private static final Pattern HEADING_PATTERN = Pattern.compile("^(第[一二三四五六七八九十百\\d]+[章节]|[一二三四五六七八九十]+、|\\d+\\.)\\s*.+");
 
     @Override
@@ -27,7 +29,7 @@ public class PdfParseHandler implements DocumentParseHandler {
     }
 
     @Override
-    public ParseResult parse(InputStream inputStream, String fileName) {
+    public ParseResult parse(String fileName, InputStream inputStream) {
         // PDFBox 3.x 弃用了 PDDocument.load(InputStream)，改用 Loader.loadPDF()
         try (PDDocument document = Loader.loadPDF(inputStream.readAllBytes())) {
             int totalPageNum = document.getNumberOfPages();

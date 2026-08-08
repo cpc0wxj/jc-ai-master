@@ -1,8 +1,8 @@
 package com.jichi.ragkb.service.handler.parse;
 
-import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
-import com.jichi.ragkb.enums.SupportedFileType;
 import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.enums.SupportedFileType;
+import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.compress.utils.Lists;
@@ -26,7 +26,7 @@ public class MarkdownParseHandler implements DocumentParseHandler {
     }
 
     @Override
-    public ParseResult parse(InputStream inputStream, String fileName) {
+    public ParseResult parse(String fileName, InputStream inputStream) {
         try {
             String markdown = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
             List<ParseResult.PageContent> pageContentList = Lists.newArrayList();

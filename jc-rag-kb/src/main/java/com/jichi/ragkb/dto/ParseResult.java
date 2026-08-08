@@ -1,10 +1,10 @@
 package com.jichi.ragkb.dto;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import java.util.List;
-import java.util.Objects;
 
 @Getter
 @Setter
@@ -54,20 +54,5 @@ public class ParseResult {
                 .setSuccess(false)
                 .setErrorMsg(errorMsg)
                 .setPageContentList(List.of());
-    }
-
-    /**
-     * 获取所有页的合并文本
-     */
-    public String getFullText() {
-        if (Objects.isNull(pageContentList)) {
-            return "";
-        }
-
-        return pageContentList.stream()
-                .map(PageContent::getText)
-                .filter(t -> t != null && !t.isBlank())
-                .reduce("", (a, b) -> a + "\n\n" + b)
-                .strip();
     }
 }
