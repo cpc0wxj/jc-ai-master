@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.enums.SupportedFileType;
 import com.jichi.ragkb.service.manager.parse.DocumentParseHandler;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
@@ -23,14 +24,15 @@ public class DocxParseHandler implements DocumentParseHandler {
     }
 
     @Override
+    @SneakyThrows
     public ParseResult parse(String fileName, InputStream inputStream) {
         try (XWPFDocument xwpfDocument = new XWPFDocument(inputStream)) {
-            String currentTitle = null;
-            StringBuilder currentSection = new StringBuilder();
-            int sectionCount = 0;
-
             // 按文档实际顺序遍历段落和表格，保证表格归属到正确的节
             List<ParseResult.PageContent> pageContentList = Lists.newArrayList();
+
+            StringBuilder currentSection = new StringBuilder();
+            String currentTitle = null;
+            int sectionCount = 0;
             for (IBodyElement iBodyElement : xwpfDocument.getBodyElements()) {
                 if (iBodyElement instanceof XWPFParagraph xwpfParagraph) {
                     String text = xwpfParagraph.getText();
@@ -77,7 +79,7 @@ public class DocxParseHandler implements DocumentParseHandler {
             }
 
             // 保存最后一节
-            if (!currentSection.isEmpty()) {
+            if (StringUtils.isNotBlank(currentSection)) {
                 ParseResult.PageContent pageContent = new ParseResult.PageContent()
                         .setPageNum(++sectionCount)
                         .setText(currentSection.toString().strip())
@@ -89,23 +91,17 @@ public class DocxParseHandler implements DocumentParseHandler {
                 return ParseResult.failure("Word 文档内容为空");
             }
 
-            // 提取文档属性中的标题（用 try-with-resources 释放资源）
-            String title = null;
-            try (XWPFWordExtractor extractor = new XWPFWordExtractor(xwpfDocument)) {
-                title = extractor.getCoreProperties().getTitle();
-            } catch (Exception ignored) {
-            }
-
             log.info("[DOCX解析] 文件={}，段落分节={}节", fileName, pageContentList.size());
 
+            String title;
+            try (XWPFWordExtractor xwpfWordExtractor = new XWPFWordExtractor(xwpfDocument)) {
+                title = xwpfWordExtractor.getCoreProperties().getTitle();
+            }
             return new ParseResult()
                     .setSuccess(true)
                     .setPageContentList(pageContentList)
                     .setTotalPageNum(pageContentList.size())
                     .setTitle(title);
-        } catch (Exception e) {
-            log.error("[DOCX解析] 文件={}，解析失败：{}", fileName, e.getMessage(), e);
-            return ParseResult.failure("Word 文档解析失败：" + e.getMessage());
         }
     }
 }
