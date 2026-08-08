@@ -1,27 +1,40 @@
 package com.jichi.ragkb.service.manager.parse;
 
-import cn.hutool.core.collection.CollStreamUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
+import com.google.common.collect.Maps;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.enums.SupportedFileType;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * 文档解析管理器
+ */
 @Slf4j
-@Service
-public class DocumentParseManager {
-    private final Map<SupportedFileType, DocumentParseHandler> parserMap;
+@Component
+public class DocumentParseManager implements BeanPostProcessor {
+    private static final Map<SupportedFileType, DocumentParseHandler> parserMap = Maps.newHashMap();
 
-    public DocumentParseManager(List<DocumentParseHandler> parserList) {
-        // 注入所有解析器实现，按 supportedType 建立索引
-        this.parserMap = CollStreamUtil.toIdentityMap(parserList, DocumentParseHandler::getSupportedFileType);
-        log.info("已加载文档解析器：{}", parserMap.keySet());
+    @Override
+    public Object postProcessBeforeInitialization(@NonNull Object bean, @NonNull String beanName) throws BeansException {
+        //实现DocumentParseHandler接口的类
+        if (bean instanceof DocumentParseHandler handler) {
+            //将其放入parserMap
+            if (parserMap.containsKey(handler.getSupportedFileType())) {
+                throw new IllegalStateException("DocumentParseManager.postProcessBeforeInitialization 重复注册DocumentParseHandler");
+            }
+            parserMap.put(handler.getSupportedFileType(), handler);
+            log.info("DocumentParseManager.postProcessBeforeInitialization 已加载文档解析器={}", handler.getSupportedFileType());
+        }
+        return bean;
     }
 
     /**
