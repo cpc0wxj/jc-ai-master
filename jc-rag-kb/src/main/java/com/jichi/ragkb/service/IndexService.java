@@ -60,8 +60,7 @@ public class IndexService {
         KbDocument doc = documentRepository.findById(docId).orElseThrow();
         try {
             byte[] fileBytes = minioStorageService.download(doc.getMinioPath());
-            ParseResult parseResult = loaderService.load(
-                    new ByteArrayInputStream(fileBytes), doc.getFileName());
+            ParseResult parseResult = loaderService.load(doc.getFileName(), new ByteArrayInputStream(fileBytes));
             doIndex(taskId, docId, doc, parseResult);
         } catch (Exception e) {
             markFailed(taskId, docId, "从MinIO读取文件失败：" + e.getMessage());

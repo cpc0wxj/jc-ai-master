@@ -27,7 +27,7 @@ class DocumentParseManagerTest {
     void parseTxtFile() throws Exception {
         ClassPathResource resource = new ClassPathResource("test-docs/hr-handbook.txt");
         try (InputStream is = resource.getInputStream()) {
-            ParseResult result = loaderService.load(is, "hr-handbook.txt");
+            ParseResult result = loaderService.load("hr-handbook.txt", is);
             String text = extractText(result);
 
             System.out.println("解析文本长度：" + text.length());
@@ -43,7 +43,7 @@ class DocumentParseManagerTest {
     void parsePdf() throws Exception {
         ClassPathResource resource = new ClassPathResource("test-docs/policy.pdf");
         try (InputStream is = resource.getInputStream()) {
-            ParseResult result = loaderService.load(is, "policy.pdf");
+            ParseResult result = loaderService.load("policy.pdf", is);
             String text = extractText(result);
 
             System.out.println("解析文本长度：" + text.length());
@@ -55,7 +55,7 @@ class DocumentParseManagerTest {
     void parseMd() throws Exception {
         ClassPathResource resource = new ClassPathResource("test-docs/hr-handbook.md");
         try (InputStream is = resource.getInputStream()) {
-            ParseResult result = loaderService.load(is, "hr-handbook.md");
+            ParseResult result = loaderService.load("hr-handbook.md", is);
             String text = extractText(result);
 
             System.out.println("解析文本长度：" + text.length());
@@ -68,7 +68,7 @@ class DocumentParseManagerTest {
         InputStream emptyStream = InputStream.nullInputStream();
         org.junit.jupiter.api.Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> loaderService.load(emptyStream, "test.xyz")
+                () -> loaderService.load("test.xyz", emptyStream)
         );
     }
 }
