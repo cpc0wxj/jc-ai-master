@@ -40,8 +40,6 @@ public class PdfParseHandler implements DocumentParseHandler {
 
     /**
      * 获取支持的文件类型
-     *
-     * @return SupportedFileType.PDF 表示此处理器专门用于解析 PDF 文件
      */
     @Override
     public SupportedFileType getSupportedFileType() {

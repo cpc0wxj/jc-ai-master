@@ -26,8 +26,6 @@ import java.util.Objects;
 public class DocxParseHandler implements DocumentParseHandler {
     /**
      * 获取支持的文件类型
-     *
-     * @return SupportedFileType.DOCX 表示此处理器专门用于解析 Word DOCX 文件
      */
     @Override
     public SupportedFileType getSupportedFileType() {
