@@ -73,14 +73,12 @@ public class IndexService {
      */
     public void executeWithText(Long taskId, Long docId, String textContent) {
         KbDocument doc = documentRepository.findById(docId).orElseThrow();
-        ParseResult parseResult = ParseResult.builder()
-                .success(true)
-                .pages(List.of(ParseResult.PageContent.builder()
-                        .pageNum(1)
-                        .text(textContent)
-                        .build()))
-                .totalPages(1)
-                .build();
+        ParseResult parseResult = new ParseResult()
+                .setSuccess(true)
+                .setPageContentList(List.of(new ParseResult.PageContent()
+                        .setPageNum(1)
+                        .setText(textContent)))
+                .setTotalPageNum(1);
         doIndex(taskId, docId, doc, parseResult);
     }
 

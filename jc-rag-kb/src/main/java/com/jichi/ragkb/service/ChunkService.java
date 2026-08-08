@@ -42,7 +42,7 @@ public class ChunkService {
         }
 
         // 判断是否应该用结构感知分块：文档有明显标题结构
-        boolean hasStructure = parseResult.getPages().stream()
+        boolean hasStructure = parseResult.getPageContentList().stream()
                 .anyMatch(p -> p.getSectionTitle() != null);
 
         ChunkSplitter splitter = (hasStructure && config.isStructureAware())

@@ -24,7 +24,7 @@ public class SlidingWindowChunkSplitter implements ChunkSplitter {
         List<ChunkResult> chunks = new ArrayList<>();
         int chunkIndex = 0;
 
-        for (ParseResult.PageContent page : parseResult.getPages()) {
+        for (ParseResult.PageContent page : parseResult.getPageContentList()) {
             String text = page.getText();
             if (text == null || text.isBlank()) continue;
 

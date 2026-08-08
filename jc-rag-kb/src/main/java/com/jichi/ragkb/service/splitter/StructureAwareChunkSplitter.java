@@ -50,15 +50,13 @@ public class StructureAwareChunkSplitter implements ChunkSplitter {
                         .build());
             } else {
                 // 节太大，降级到固定窗口切分
-                ParseResult sectionResult = ParseResult.builder()
-                        .success(true)
-                        .pages(List.of(ParseResult.PageContent.builder()
-                                .pageNum(section.pageNum())
-                                .text(section.text())
-                                .sectionTitle(section.title())
-                                .build()))
-                        .totalPages(1)
-                        .build();
+                ParseResult sectionResult = new ParseResult()
+                        .setSuccess(true)
+                        .setPageContentList(List.of(new ParseResult.PageContent()
+                                .setPageNum(section.pageNum())
+                                .setText(section.text())
+                                .setSectionTitle(section.title())))
+                        .setTotalPageNum(1);
 
                 List<ChunkResult> subChunks = slidingSplitter.split(sectionResult, config);
                 for (ChunkResult sub : subChunks) {
@@ -78,7 +76,7 @@ public class StructureAwareChunkSplitter implements ChunkSplitter {
         String currentTitle = null;
         int currentPage = 1;
 
-        for (ParseResult.PageContent page : parseResult.getPages()) {
+        for (ParseResult.PageContent page : parseResult.getPageContentList()) {
             String[] lines = page.getText().split("\n");
             for (String line : lines) {
                 var matcher = HEADING_PATTERN.matcher(line.strip());
