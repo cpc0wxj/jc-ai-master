@@ -15,6 +15,7 @@ public class MinioConfig {
     @Bean
     public MinioClient minioClient() {
         log.info("MinioConfig.minioClient endpoint={}", minioProperties.getEndpoint());
+
         return MinioClient.builder()
                 .endpoint(minioProperties.getEndpoint())
                 .credentials(minioProperties.getAccessKey(), minioProperties.getSecretKey())
