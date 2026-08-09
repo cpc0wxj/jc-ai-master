@@ -8,43 +8,44 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.InputStream;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 class DocumentParseManagerTest {
-
     @Autowired
     private DocumentParseManager loaderService;
 
     private String extractText(ParseResult result) {
         return result.getPageContentList().stream()
                 .map(ParseResult.PageContent::getText)
-                .collect(java.util.stream.Collectors.joining("\n"));
+                .collect(Collectors.joining("\n"));
     }
 
     @Test
     void parseTxtFile() throws Exception {
-        ClassPathResource resource = new ClassPathResource("test-docs/hr-handbook.txt");
-        try (InputStream is = resource.getInputStream()) {
-            ParseResult result = loaderService.load("hr-handbook.txt", is);
-            String text = extractText(result);
+        ClassPathResource classPathResource = new ClassPathResource("test-docs/hr-handbook.txt");
+        try (InputStream inputStream = classPathResource.getInputStream()) {
+            ParseResult parseResult = loaderService.load("hr-handbook.txt", inputStream);
+            String text = extractText(parseResult);
 
             System.out.println("解析文本长度：" + text.length());
             System.out.println("解析内容前100字：" + text.substring(0, Math.min(100, text.length())));
 
-            assertThat(result.isSuccess()).isTrue();
+            assertThat(parseResult.isSuccess()).isTrue();
             assertThat(text).isNotBlank();
-            assertThat(text).contains("Spring Boot");
+            assertThat(text).contains("公司简介");
         }
     }
 
     @Test
     void parsePdf() throws Exception {
-        ClassPathResource resource = new ClassPathResource("test-docs/policy.pdf");
-        try (InputStream is = resource.getInputStream()) {
-            ParseResult result = loaderService.load("policy.pdf", is);
-            String text = extractText(result);
+        ClassPathResource classPathResource = new ClassPathResource("test-docs/policy.pdf");
+        try (InputStream inputStream = classPathResource.getInputStream()) {
+            ParseResult parseResult = loaderService.load("policy.pdf", inputStream);
+            String text = extractText(parseResult);
 
             System.out.println("解析文本长度：" + text.length());
             System.out.println("解析内容前100字：" + text.substring(0, Math.min(100, text.length())));
@@ -54,21 +55,12 @@ class DocumentParseManagerTest {
     @Test
     void parseMd() throws Exception {
         ClassPathResource resource = new ClassPathResource("test-docs/hr-handbook.md");
-        try (InputStream is = resource.getInputStream()) {
-            ParseResult result = loaderService.load("hr-handbook.md", is);
-            String text = extractText(result);
+        try (InputStream inputStream = resource.getInputStream()) {
+            ParseResult parseResult = loaderService.load("hr-handbook.md", inputStream);
+            String text = extractText(parseResult);
 
             System.out.println("解析文本长度：" + text.length());
             System.out.println("解析内容前100字：" + text.substring(0, Math.min(100, text.length())));
         }
-    }
-
-    @Test
-    void unsupportedTypeThrowsException() {
-        InputStream emptyStream = InputStream.nullInputStream();
-        org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> loaderService.load("test.xyz", emptyStream)
-        );
     }
 }

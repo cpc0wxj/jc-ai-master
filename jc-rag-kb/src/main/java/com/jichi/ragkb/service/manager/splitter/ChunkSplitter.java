@@ -1,6 +1,8 @@
-package com.jichi.ragkb.service.splitter;
+package com.jichi.ragkb.service.manager.splitter;
 
+import com.jichi.ragkb.config.ChunkConfig;
 import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.dto.ChunkResult;
 
 import java.util.List;
 

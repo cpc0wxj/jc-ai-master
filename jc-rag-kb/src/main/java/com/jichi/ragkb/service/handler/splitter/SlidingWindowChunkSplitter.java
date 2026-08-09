@@ -1,54 +1,59 @@
-package com.jichi.ragkb.service.splitter;
+package com.jichi.ragkb.service.handler.splitter;
 
+import com.jichi.ragkb.config.ChunkConfig;
+import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.service.manager.splitter.ChunkSplitter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.compress.utils.Lists;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 固定窗口滑动分块。
- *
- * 核心逻辑：
+ * 固定窗口滑动分块
+ * 核心逻辑
  * 1. 将文档所有页的文本合并成一个大字符串
  * 2. 按 chunkSize 滑动，步长 = chunkSize - chunkOverlap
  * 3. 尽量在句子/段落边界处断开，避免在句子中间截断
  */
-@Component
 @Slf4j
+@Component
 public class SlidingWindowChunkSplitter implements ChunkSplitter {
-
     @Override
     public List<ChunkResult> split(ParseResult parseResult, ChunkConfig config) {
-        List<ChunkResult> chunks = new ArrayList<>();
+        List<ChunkResult> chunkResultList = Lists.newArrayList();
         int chunkIndex = 0;
 
-        for (ParseResult.PageContent page : parseResult.getPageContentList()) {
-            String text = page.getText();
-            if (text == null || text.isBlank()) continue;
+        for (ParseResult.PageContent pageContent : parseResult.getPageContentList()) {
+            if (StringUtils.isBlank(pageContent.getText())) {
+                continue;
+            }
 
-            List<String> pageChunks = splitText(text, config.getChunkSize(), config.getChunkOverlap());
+            List<String> pageChunkList = splitText(pageContent.getText(), config.getChunkSize(), config.getChunkOverlap());
 
-            for (String chunkText : pageChunks) {
-                if (chunkText.isBlank()) continue;
+            for (String chunkText : pageChunkList) {
+                if (chunkText.isBlank()) {
+                    continue;
+                }
 
-                chunks.add(ChunkResult.builder()
-                        .chunkIndex(chunkIndex++)
-                        .content(chunkText)
-                        .pageNum(page.getPageNum())
-                        .sectionTitle(page.getSectionTitle())
-                        .estimatedTokens(estimateTokens(chunkText))
-                        .build());
+                chunkResultList.add(new ChunkResult()
+                        .setChunkIndex(chunkIndex++)
+                        .setContent(chunkText)
+                        .setPageNum(pageContent.getPageNum())
+                        .setSectionTitle(pageContent.getSectionTitle())
+                        .setEstimatedTokens(estimateTokens(chunkText)));
             }
         }
 
         log.debug("[分块] 文档分块完成，共{}块，avgSize={}字符",
-                chunks.size(),
-                chunks.isEmpty() ? 0 : chunks.stream()
+                chunkResultList.size(),
+                chunkResultList.isEmpty() ? 0 : chunkResultList.stream()
                         .mapToInt(c -> c.getContent().length()).average().orElse(0));
 
-        return chunks;
+        return chunkResultList;
     }
 
     /**

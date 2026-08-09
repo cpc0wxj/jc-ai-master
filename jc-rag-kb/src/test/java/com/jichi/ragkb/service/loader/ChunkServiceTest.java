@@ -1,8 +1,8 @@
 package com.jichi.ragkb.service.loader;
 
 import com.jichi.ragkb.dto.ParseResult;
-import com.jichi.ragkb.service.ChunkService;
-import com.jichi.ragkb.service.splitter.ChunkResult;
+import com.jichi.ragkb.service.manager.splitter.ChunkService;
+import com.jichi.ragkb.dto.ChunkResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

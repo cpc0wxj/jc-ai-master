@@ -1,17 +1,21 @@
-package com.jichi.ragkb.service;
+package com.jichi.ragkb.service.manager.splitter;
 
+import com.jichi.ragkb.config.ChunkConfig;
+import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
-import com.jichi.ragkb.service.splitter.*;
+import com.jichi.ragkb.service.handler.splitter.SlidingWindowChunkSplitter;
+import com.jichi.ragkb.service.handler.splitter.StructureAwareChunkSplitter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ChunkService {
     private final SlidingWindowChunkSplitter slidingWindowSplitter;
     private final StructureAwareChunkSplitter structureAwareSplitter;
@@ -27,12 +31,11 @@ public class ChunkService {
      * 如果文档有清晰的章节结构，使用结构感知分块；否则使用固定窗口分块。
      */
     public List<ChunkResult> chunk(ParseResult parseResult) {
-        ChunkConfig config = ChunkConfig.builder()
-                .chunkSize(defaultChunkSize)
-                .chunkOverlap(defaultOverlap)
-                .build();
+        ChunkConfig chunkConfig = new ChunkConfig()
+                .setChunkSize(defaultChunkSize)
+                .setChunkOverlap(defaultOverlap);
 
-        return chunk(parseResult, config);
+        return chunk(parseResult, chunkConfig);
     }
 
     public List<ChunkResult> chunk(ParseResult parseResult, ChunkConfig config) {
@@ -41,10 +44,9 @@ public class ChunkService {
         }
 
         // 判断是否应该用结构感知分块：文档有明显标题结构
-        boolean hasStructure = parseResult.getPageContentList().stream()
-                .anyMatch(p -> p.getSectionTitle() != null);
+        boolean hasStructure = parseResult.getPageContentList().stream().anyMatch(temp -> Objects.nonNull(temp.getSectionTitle()));
 
-        ChunkSplitter splitter = (hasStructure && config.isStructureAware())
+        ChunkSplitter splitter = hasStructure && config.isStructureAware()
                 ? structureAwareSplitter
                 : slidingWindowSplitter;
 

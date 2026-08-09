@@ -1,6 +1,9 @@
-package com.jichi.ragkb.service.splitter;
+package com.jichi.ragkb.service.handler.splitter;
 
+import com.jichi.ragkb.config.ChunkConfig;
 import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.service.manager.splitter.ChunkSplitter;
+import com.jichi.ragkb.dto.ChunkResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -41,13 +44,12 @@ public class StructureAwareChunkSplitter implements ChunkSplitter {
             // 节太小（少于50字符）且下一节不是标题开头，合并（在 extractSections 时处理）
             if (section.text().length() <= config.getChunkSize()) {
                 // 节大小合适，直接作为一块
-                chunks.add(ChunkResult.builder()
-                        .chunkIndex(chunkIndex++)
-                        .content(section.text())
-                        .pageNum(section.pageNum())
-                        .sectionTitle(section.title())
-                        .estimatedTokens(estimateTokens(section.text()))
-                        .build());
+                chunks.add(new ChunkResult()
+                        .setChunkIndex(chunkIndex++)
+                        .setContent(section.text())
+                        .setPageNum(section.pageNum())
+                        .setSectionTitle(section.title())
+                        .setEstimatedTokens(estimateTokens(section.text())));
             } else {
                 // 节太大，降级到固定窗口切分
                 ParseResult sectionResult = new ParseResult()
