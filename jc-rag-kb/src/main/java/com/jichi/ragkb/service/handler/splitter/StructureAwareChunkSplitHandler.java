@@ -6,10 +6,13 @@ import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.enums.ChunkSplitStrategy;
 import com.jichi.ragkb.service.manager.splitter.ChunkSplitHandler;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.compress.utils.Lists;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -21,8 +24,8 @@ import java.util.regex.Pattern;
  * 2. 节太大则再用固定窗口切分
  * 3. 节太小则与下一节合并（避免碎片化）
  */
-@Component("structureAwareSplitter")
 @Slf4j
+@Component("structureAwareSplitter")
 public class StructureAwareChunkSplitHandler implements ChunkSplitHandler {
     /**
      * 获取分块策略类型
@@ -32,91 +35,123 @@ public class StructureAwareChunkSplitHandler implements ChunkSplitHandler {
         return ChunkSplitStrategy.STRUCTURE_AWARE;
     }
 
-    // 识别中英文标题行
-    private static final Pattern HEADING_PATTERN = Pattern.compile(
-            "^(#{1,3}\\s+|第[一二三四五六七八九十百\\d]+[章节]|[一二三四五六七八九十]+、|\\d+\\.\\d?\\s+)(.{2,60})$"
-    );
+    /**
+     * 中英文标题行正则模式
+     * 匹配以下格式的标题行：
+     * - Markdown 标题：# / ## / ### 开头
+     * - 中文章节：第一章 / 第二节 等
+     * - 中文序号：一、 二、 等
+     * - 数字序号：1. / 1.1 等
+     * 捕获组用于提取标题文本（长度限定 2-60 字符）
+     */
+    private static final Pattern HEADING_PATTERN = Pattern.compile("^(#{1,3}\\s+|第[一二三四五六七八九十百\\d]+[章节]|[一二三四五六七八九十]+、|\\d+\\.\\d?\\s+)(.{2,60})$");
 
+    /**
+     * 委托的固定窗口分块器，用于对超大节进行二次切分
+     */
     private final SlidingWindowChunkSplitHandler slidingSplitter = new SlidingWindowChunkSplitHandler();
 
+    /**
+     * 结构感知分块入口
+     * 先按标题边界抽取节，再按节大小决定直接成块或降级固定窗口切分
+     */
     @Override
     public List<ChunkResult> split(ParseResult parseResult, RagChunkProperties ragChunkProperties) {
-        // 先用固定窗口分块，然后按标题边界合并或进一步切分
-        List<TextSection> sections = extractSections(parseResult);
-        List<ChunkResult> chunks = new ArrayList<>();
+        // 按标题边界抽取所有节
+        List<TextSection> textSectionList = extractSections(parseResult);
+        List<ChunkResult> chunkResultList = Lists.newArrayList();
+        // 全局分块序号，从 0 开始递增
         int chunkIndex = 0;
 
-        for (TextSection section : sections) {
+        for (TextSection section : textSectionList) {
             // 节太小（少于50字符）且下一节不是标题开头，合并（在 extractSections 时处理）
             if (section.text().length() <= ragChunkProperties.getSize()) {
                 // 节大小合适，直接作为一块
-                chunks.add(new ChunkResult()
+                Integer estimatedTokens = ChunkSplitHandler.estimateTokens(section.text());
+                ChunkResult chunkResult = new ChunkResult()
                         .setChunkIndex(chunkIndex++)
                         .setContent(section.text())
                         .setPageNum(section.pageNum())
                         .setSectionTitle(section.title())
-                        .setEstimatedTokens(estimateTokens(section.text())));
+                        .setEstimatedTokens(estimatedTokens);
+                chunkResultList.add(chunkResult);
             } else {
                 // 节太大，降级到固定窗口切分
+                // 将当前节包装成单页 ParseResult，复用滑动窗口分块器
+                ParseResult.PageContent pageContent = new ParseResult.PageContent()
+                        .setPageNum(section.pageNum())
+                        .setText(section.text())
+                        .setSectionTitle(section.title());
                 ParseResult sectionResult = new ParseResult()
                         .setSuccess(true)
-                        .setPageContentList(List.of(new ParseResult.PageContent()
-                                .setPageNum(section.pageNum())
-                                .setText(section.text())
-                                .setSectionTitle(section.title())))
+                        .setPageContentList(List.of(pageContent))
                         .setTotalPageNum(1);
 
-                List<ChunkResult> subChunks = slidingSplitter.split(sectionResult, ragChunkProperties);
-                for (ChunkResult sub : subChunks) {
-                    sub.setChunkIndex(chunkIndex++);
-                    if (sub.getSectionTitle() == null) sub.setSectionTitle(section.title());
-                    chunks.add(sub);
+                List<ChunkResult> subChunkResultList = slidingSplitter.split(sectionResult, ragChunkProperties);
+                // 重新编排序号，并回填缺失的节标题
+                for (ChunkResult chunkResult : subChunkResultList) {
+                    chunkResult.setChunkIndex(chunkIndex++);
+                    if (Objects.isNull(chunkResult.getSectionTitle())) {
+                        chunkResult.setSectionTitle(section.title());
+                    }
+                    chunkResultList.add(chunkResult);
                 }
             }
         }
 
-        return chunks;
+        return chunkResultList;
     }
 
+    /**
+     * 按标题边界将文档抽取为若干节
+     * 遇到标题行且当前节已有足够内容（>50 字符）时，保存当前节并开启新节
+     *
+     * @param parseResult 文档解析结果
+     * @return 按标题切分的节列表
+     */
     private List<TextSection> extractSections(ParseResult parseResult) {
-        List<TextSection> sections = new ArrayList<>();
+        // 节列表
+        List<TextSection> sectionList = Lists.newArrayList();
+
+        // 当前节的累积内容
         StringBuilder current = new StringBuilder();
+        // 当前节的标题（如果有）
         String currentTitle = null;
+        // 当前节所属页码
         int currentPage = 1;
 
         for (ParseResult.PageContent page : parseResult.getPageContentList()) {
             String[] lines = page.getText().split("\n");
             for (String line : lines) {
-                var matcher = HEADING_PATTERN.matcher(line.strip());
+                Matcher matcher = HEADING_PATTERN.matcher(line.strip());
+                // 命中标题且当前节已有足够内容，保存当前节并开始新节
                 if (matcher.matches() && current.length() > 50) {
                     // 遇到标题且当前节有内容，保存
-                    sections.add(new TextSection(currentTitle, current.toString().strip(), currentPage));
+                    TextSection textSection = new TextSection(currentTitle, current.toString().strip(), currentPage);
+                    sectionList.add(textSection);
+
                     current = new StringBuilder();
                     currentTitle = line.strip();
                     currentPage = page.getPageNum();
                 }
+                // 当前行追加到当前节内容
                 current.append(line).append("\n");
             }
             currentPage = page.getPageNum();
         }
 
-        if (!current.isEmpty()) {
-            sections.add(new TextSection(currentTitle, current.toString().strip(), currentPage));
+        // 循环结束后，保存最后一个未保存的节
+        if (StringUtils.isNotBlank(current)) {
+            TextSection textSection = new TextSection(currentTitle, current.toString().strip(), currentPage);
+            sectionList.add(textSection);
         }
 
-        return sections;
+        return sectionList;
     }
 
-    private int estimateTokens(String text) {
-        if (text == null) return 0;
-        int chinese = 0, other = 0;
-        for (char c : text.toCharArray()) {
-            if (c >= '\u4e00' && c <= '\u9fff') chinese++;
-            else if (!Character.isWhitespace(c)) other++;
-        }
-        return (int) (chinese * 1.5 + other * 0.3);
-    }
-
+    /**
+     * 节数据结构，记录标题、正文及所属页码
+     */
     record TextSection(String title, String text, int pageNum) {
     }
 }

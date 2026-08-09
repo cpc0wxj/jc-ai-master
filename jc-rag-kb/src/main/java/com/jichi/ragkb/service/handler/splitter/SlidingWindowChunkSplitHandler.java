@@ -11,7 +11,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Objects;
 
 /**
  * 固定窗口滑动分块
@@ -59,7 +58,7 @@ public class SlidingWindowChunkSplitHandler implements ChunkSplitHandler {
                 }
 
                 // 构建分块结果，记录序号、内容、来源页码、节标题及估算 Token 数
-                Integer estimatedTokens = estimateTokens(chunkText);
+                Integer estimatedTokens = ChunkSplitHandler.estimateTokens(chunkText);
                 ChunkResult chunkResult = new ChunkResult()
                         .setChunkIndex(chunkIndex++)
                         .setContent(chunkText)
@@ -140,33 +139,5 @@ public class SlidingWindowChunkSplitHandler implements ChunkSplitHandler {
 
         // 找不到好的断点，直接截断
         return position;
-    }
-
-    /**
-     * 简单的 Token 估算：中文每字约 1.5 Token，英文每字符约 0.3 Token
-     * 不依赖外部 Tokenizer，近似计算。
-     *
-     * @param text 待估算的文本
-     * @return 估算的 Token 数量
-     */
-    private Integer estimateTokens(String text) {
-        if (Objects.isNull(text)) {
-            return 0;
-        }
-
-        // 中文字符计数
-        int chineseChars = 0;
-        // 其他非空白字符计数
-        int otherChars = 0;
-        for (char c : text.toCharArray()) {
-            // 判定为 CJK 统一汉字（U+4E00 ~ U+9FFF）
-            if (c >= '\u4e00' && c <= '\u9fff') {
-                chineseChars++;
-            } else if (!Character.isWhitespace(c)) {
-                otherChars++;
-            }
-        }
-        // 按权重加权求和
-        return (int) (chineseChars * 1.5 + otherChars * 0.3);
     }
 }
