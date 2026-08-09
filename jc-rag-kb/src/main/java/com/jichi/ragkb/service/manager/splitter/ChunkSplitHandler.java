@@ -6,8 +6,7 @@ import com.jichi.ragkb.dto.ChunkResult;
 
 import java.util.List;
 
-public interface ChunkSplitter {
-
+public interface ChunkSplitHandler {
     /**
      * 将解析结果拆分为若干块。
      *

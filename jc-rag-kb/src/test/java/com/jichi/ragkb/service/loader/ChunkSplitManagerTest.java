@@ -1,7 +1,7 @@
 package com.jichi.ragkb.service.loader;
 
 import com.jichi.ragkb.dto.ParseResult;
-import com.jichi.ragkb.service.manager.splitter.ChunkService;
+import com.jichi.ragkb.service.manager.splitter.ChunkSplitManager;
 import com.jichi.ragkb.dto.ChunkResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,10 +12,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-class ChunkServiceTest {
+class ChunkSplitManagerTest {
 
     @Autowired
-    private ChunkService chunkService;
+    private ChunkSplitManager chunkSplitManager;
 
     @Test
     void chunksNotTooLargeOrTooSmall() {
@@ -27,7 +27,7 @@ class ChunkServiceTest {
                         .setText(longText)))
                 .setTotalPageNum(1);
 
-        List<ChunkResult> chunks = chunkService.chunk(result);
+        List<ChunkResult> chunks = chunkSplitManager.chunk(result);
 
         assertThat(chunks).isNotEmpty();
         for (ChunkResult chunk : chunks) {

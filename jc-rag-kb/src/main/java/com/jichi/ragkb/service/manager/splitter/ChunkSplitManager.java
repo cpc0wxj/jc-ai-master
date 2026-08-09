@@ -3,8 +3,8 @@ package com.jichi.ragkb.service.manager.splitter;
 import com.jichi.ragkb.config.ChunkConfig;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
-import com.jichi.ragkb.service.handler.splitter.SlidingWindowChunkSplitter;
-import com.jichi.ragkb.service.handler.splitter.StructureAwareChunkSplitter;
+import com.jichi.ragkb.service.handler.splitter.SlidingWindowChunkSplitHandler;
+import com.jichi.ragkb.service.handler.splitter.StructureAwareChunkSplitHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,9 +16,9 @@ import java.util.Objects;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ChunkService {
-    private final SlidingWindowChunkSplitter slidingWindowSplitter;
-    private final StructureAwareChunkSplitter structureAwareSplitter;
+public class ChunkSplitManager {
+    private final SlidingWindowChunkSplitHandler slidingWindowSplitter;
+    private final StructureAwareChunkSplitHandler structureAwareSplitter;
 
     @Value("${rag.chunk.size:512}")
     private int defaultChunkSize;
@@ -46,7 +46,7 @@ public class ChunkService {
         // 判断是否应该用结构感知分块：文档有明显标题结构
         boolean hasStructure = parseResult.getPageContentList().stream().anyMatch(temp -> Objects.nonNull(temp.getSectionTitle()));
 
-        ChunkSplitter splitter = hasStructure && config.isStructureAware()
+        ChunkSplitHandler splitter = hasStructure && config.isStructureAware()
                 ? structureAwareSplitter
                 : slidingWindowSplitter;
 

@@ -2,7 +2,7 @@ package com.jichi.ragkb.service.handler.splitter;
 
 import com.jichi.ragkb.config.ChunkConfig;
 import com.jichi.ragkb.dto.ParseResult;
-import com.jichi.ragkb.service.manager.splitter.ChunkSplitter;
+import com.jichi.ragkb.service.manager.splitter.ChunkSplitHandler;
 import com.jichi.ragkb.dto.ChunkResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -24,14 +24,14 @@ import java.util.regex.Pattern;
  */
 @Component("structureAwareSplitter")
 @Slf4j
-public class StructureAwareChunkSplitter implements ChunkSplitter {
+public class StructureAwareChunkSplitHandler implements ChunkSplitHandler {
 
     // 识别中英文标题行
     private static final Pattern HEADING_PATTERN = Pattern.compile(
             "^(#{1,3}\\s+|第[一二三四五六七八九十百\\d]+[章节]|[一二三四五六七八九十]+、|\\d+\\.\\d?\\s+)(.{2,60})$"
     );
 
-    private final SlidingWindowChunkSplitter slidingSplitter = new SlidingWindowChunkSplitter();
+    private final SlidingWindowChunkSplitHandler slidingSplitter = new SlidingWindowChunkSplitHandler();
 
     @Override
     public List<ChunkResult> split(ParseResult parseResult, ChunkConfig config) {

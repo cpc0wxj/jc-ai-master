@@ -4,7 +4,7 @@ import com.jichi.ragkb.entity.*;
 import com.jichi.ragkb.service.manager.parse.DocumentParseManager;
 import com.jichi.ragkb.repository.*;
 import com.jichi.ragkb.dto.ParseResult;
-import com.jichi.ragkb.service.manager.splitter.ChunkService;
+import com.jichi.ragkb.service.manager.splitter.ChunkSplitManager;
 import com.jichi.ragkb.dto.ChunkResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +24,7 @@ public class IndexService {
     private final DocChunkRepository chunkRepository;
     private final IndexTaskRepository taskRepository;
     private final DocumentParseManager loaderService;
-    private final ChunkService chunkService;
+    private final ChunkSplitManager chunkSplitManager;
     private final EmbeddingService embeddingService;
     private final MinioStorageService minioStorageService;
     private final IndexTaskLauncher taskLauncher;   // 后面会讲为什么要抽出这个类
@@ -100,7 +100,7 @@ public class IndexService {
             }
 
             // 第一步：分块
-            List<ChunkResult> chunks = chunkService.chunk(parseResult);
+            List<ChunkResult> chunks = chunkSplitManager.chunk(parseResult);
             if (chunks.isEmpty()) {
                 throw new RuntimeException("分块结果为空，文档可能无有效文本内容");
             }
