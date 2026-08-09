@@ -34,7 +34,7 @@ class DocumentParseManagerTest {
             System.out.println("解析文本长度：" + text.length());
             System.out.println("解析内容前100字：" + text.substring(0, Math.min(100, text.length())));
 
-            assertThat(parseResult.isSuccess()).isTrue();
+            assertThat(parseResult.getSuccess()).isTrue();
             assertThat(text).isNotBlank();
             assertThat(text).contains("公司简介");
         }
