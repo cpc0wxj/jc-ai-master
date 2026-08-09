@@ -5,9 +5,9 @@ import com.jichi.ragkb.config.ChunkConfig;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.enums.ChunkSplitStrategy;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
@@ -18,14 +18,11 @@ import java.util.Objects;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ChunkSplitManager implements BeanPostProcessor {
     private static final Map<ChunkSplitStrategy, ChunkSplitHandler> splitterMap = Maps.newHashMap();
 
-    @Value("${rag.chunk.size:512}")
-    private int defaultChunkSize;
-
-    @Value("${rag.chunk.overlap:64}")
-    private int defaultOverlap;
+    private final ChunkConfig chunkConfig;
 
     @Override
     public Object postProcessBeforeInitialization(@NonNull Object bean, @NonNull String beanName) throws BeansException {
@@ -44,10 +41,6 @@ public class ChunkSplitManager implements BeanPostProcessor {
      * 如果文档有清晰的章节结构，使用结构感知分块；否则使用固定窗口分块。
      */
     public List<ChunkResult> chunk(ParseResult parseResult) {
-        ChunkConfig chunkConfig = new ChunkConfig()
-                .setChunkSize(defaultChunkSize)
-                .setChunkOverlap(defaultOverlap);
-
         return chunk(parseResult, chunkConfig);
     }
 
