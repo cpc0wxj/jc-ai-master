@@ -1,30 +1,43 @@
 package com.jichi.ragkb.service.manager.splitter;
 
+import com.google.common.collect.Maps;
 import com.jichi.ragkb.config.ChunkConfig;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
-import com.jichi.ragkb.service.handler.splitter.SlidingWindowChunkSplitHandler;
-import com.jichi.ragkb.service.handler.splitter.StructureAwareChunkSplitHandler;
-import lombok.RequiredArgsConstructor;
+import com.jichi.ragkb.enums.ChunkSplitStrategy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @Slf4j
-@Service
-@RequiredArgsConstructor
-public class ChunkSplitManager {
-    private final SlidingWindowChunkSplitHandler slidingWindowSplitter;
-    private final StructureAwareChunkSplitHandler structureAwareSplitter;
+@Component
+public class ChunkSplitManager implements BeanPostProcessor {
+    private static final Map<ChunkSplitStrategy, ChunkSplitHandler> splitterMap = Maps.newHashMap();
 
     @Value("${rag.chunk.size:512}")
     private int defaultChunkSize;
 
     @Value("${rag.chunk.overlap:64}")
     private int defaultOverlap;
+
+    @Override
+    public Object postProcessBeforeInitialization(@NonNull Object bean, @NonNull String beanName) throws BeansException {
+        if (bean instanceof ChunkSplitHandler handler) {
+            if (splitterMap.containsKey(handler.getChunkSplitStrategy())) {
+                throw new IllegalStateException("ChunkSplitManager.postProcessBeforeInitialization 重复注册ChunkSplitHandler");
+            }
+            splitterMap.put(handler.getChunkSplitStrategy(), handler);
+            log.info("ChunkSplitManager.postProcessBeforeInitialization 已加载分块器={}", handler.getChunkSplitStrategy());
+        }
+        return bean;
+    }
 
     /**
      * 对解析结果进行分块。
@@ -43,12 +56,7 @@ public class ChunkSplitManager {
             return List.of();
         }
 
-        // 判断是否应该用结构感知分块：文档有明显标题结构
-        boolean hasStructure = parseResult.getPageContentList().stream().anyMatch(temp -> Objects.nonNull(temp.getSectionTitle()));
-
-        ChunkSplitHandler splitter = hasStructure && config.isStructureAware()
-                ? structureAwareSplitter
-                : slidingWindowSplitter;
+        ChunkSplitHandler splitter = getHandler(parseResult, config);
 
         List<ChunkResult> chunks = splitter.split(parseResult, config);
 
@@ -58,10 +66,24 @@ public class ChunkSplitManager {
                 .toList();
 
         log.info("[分块] 完成分块：策略={}，共{}块，总字符={}",
-                splitter.getClass().getSimpleName(),
+                splitter.getChunkSplitStrategy(),
                 chunks.size(),
                 chunks.stream().mapToInt(c -> c.getContent().length()).sum());
 
         return chunks;
+    }
+
+    /**
+     * 根据文档结构和配置选择对应的分块器
+     */
+    private ChunkSplitHandler getHandler(ParseResult parseResult, ChunkConfig config) {
+        // 判断是否应该用结构感知分块：文档有明显标题结构
+        boolean hasStructure = parseResult.getPageContentList().stream().anyMatch(temp -> Objects.nonNull(temp.getSectionTitle()));
+
+        ChunkSplitStrategy strategy = hasStructure && config.isStructureAware()
+                ? ChunkSplitStrategy.STRUCTURE_AWARE
+                : ChunkSplitStrategy.SLIDING_WINDOW;
+
+        return splitterMap.get(strategy);
     }
 }

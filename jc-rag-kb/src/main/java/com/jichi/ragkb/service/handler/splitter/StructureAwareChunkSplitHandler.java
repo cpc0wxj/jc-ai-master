@@ -2,6 +2,7 @@ package com.jichi.ragkb.service.handler.splitter;
 
 import com.jichi.ragkb.config.ChunkConfig;
 import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.enums.ChunkSplitStrategy;
 import com.jichi.ragkb.service.manager.splitter.ChunkSplitHandler;
 import com.jichi.ragkb.dto.ChunkResult;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,13 @@ import java.util.regex.Pattern;
 @Component("structureAwareSplitter")
 @Slf4j
 public class StructureAwareChunkSplitHandler implements ChunkSplitHandler {
+    /**
+     * 获取分块策略类型
+     */
+    @Override
+    public ChunkSplitStrategy getChunkSplitStrategy() {
+        return ChunkSplitStrategy.STRUCTURE_AWARE;
+    }
 
     // 识别中英文标题行
     private static final Pattern HEADING_PATTERN = Pattern.compile(

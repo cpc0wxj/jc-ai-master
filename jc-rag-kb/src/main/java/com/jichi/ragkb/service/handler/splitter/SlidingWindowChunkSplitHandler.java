@@ -3,6 +3,7 @@ package com.jichi.ragkb.service.handler.splitter;
 import com.jichi.ragkb.config.ChunkConfig;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
+import com.jichi.ragkb.enums.ChunkSplitStrategy;
 import com.jichi.ragkb.service.manager.splitter.ChunkSplitHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.compress.utils.Lists;
@@ -22,6 +23,14 @@ import java.util.List;
 @Slf4j
 @Component
 public class SlidingWindowChunkSplitHandler implements ChunkSplitHandler {
+    /**
+     * 获取分块策略类型
+     */
+    @Override
+    public ChunkSplitStrategy getChunkSplitStrategy() {
+        return ChunkSplitStrategy.SLIDING_WINDOW;
+    }
+
     @Override
     public List<ChunkResult> split(ParseResult parseResult, ChunkConfig config) {
         List<ChunkResult> chunkResultList = Lists.newArrayList();
