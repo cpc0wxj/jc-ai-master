@@ -84,6 +84,7 @@ rag:
   chunk:
     size: 512           # 每块最大字符数
     overlap: 64         # 相邻块重叠字符数
+    structure-aware: false  # 是否启用结构感知分块（按段落/标题断点）
   retrieval:
     vector-top-k: 20    # 向量检索召回数量
     fulltext-top-k: 20  # 全文检索召回数量

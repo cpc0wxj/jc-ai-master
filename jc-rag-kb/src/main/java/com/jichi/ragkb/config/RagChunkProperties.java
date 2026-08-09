@@ -13,9 +13,13 @@ public class RagChunkProperties {
     /**
      * 每块最大字符数
      */
-    private int size;
+    private Integer size;
     /**
      * 相邻块的重叠字符数，避免信息在块边界被截断
      */
-    private int overlap;
+    private Integer overlap;
+    /**
+     * 是否启用结构感知分块（按段落/标题断点）
+     */
+    private Boolean structureAware;
 }

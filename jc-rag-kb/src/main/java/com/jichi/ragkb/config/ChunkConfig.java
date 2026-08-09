@@ -11,13 +11,13 @@ public class ChunkConfig {
     /**
      * 每块最大字符数
      */
-    private int chunkSize = 512;
+    private int chunkSize;
     /**
      * 相邻块的重叠字符数，避免信息在块边界被截断
      */
-    private int chunkOverlap = 64;
+    private int chunkOverlap;
     /**
      * 是否启用结构感知分块（按段落/标题断点）
      */
-    private boolean structureAware = false;
+    private Boolean structureAware;
 }

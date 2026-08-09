@@ -13,9 +13,11 @@ public class RagChunkConfig {
 
     @Bean
     public ChunkConfig chunkConfig() {
-        log.info("RagChunkConfig.chunkConfig size={}, overlap={}", ragChunkProperties.getSize(), ragChunkProperties.getOverlap());
+        log.info("RagChunkConfig.chunkConfig size={}, overlap={}, structureAware={}", ragChunkProperties.getSize(), ragChunkProperties.getOverlap(), ragChunkProperties.getStructureAware());
+
         return new ChunkConfig()
                 .setChunkSize(ragChunkProperties.getSize())
-                .setChunkOverlap(ragChunkProperties.getOverlap());
+                .setChunkOverlap(ragChunkProperties.getOverlap())
+                .setStructureAware(ragChunkProperties.getStructureAware());
     }
 }
