@@ -56,7 +56,7 @@ public class DocumentParseManager implements BeanPostProcessor {
         ParseResult result = documentParseHandler.parse(fileName, inputStream);
         long elapsed = System.currentTimeMillis() - start;
 
-        if (result.isSuccess()) {
+        if (result.getSuccess()) {
             log.info("DocumentParseManager.load 文档解析完成 fileName={},totalPageNum={},elapsed={}", fileName, result.getTotalPageNum(), elapsed);
         } else {
             log.warn("DocumentParseManager.load 文档解析失败 fileName={},errorMsg={}", fileName, result.getErrorMsg());

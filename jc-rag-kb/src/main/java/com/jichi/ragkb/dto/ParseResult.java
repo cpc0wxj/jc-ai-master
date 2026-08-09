@@ -13,7 +13,7 @@ public class ParseResult {
     /**
      * 解析是否成功
      */
-    private boolean success;
+    private Boolean success;
     /**
      * 错误信息（success=false 时有值）
      */

@@ -95,7 +95,7 @@ public class IndexService {
         updateDocStatus(docId, KbDocument.DocumentStatus.PROCESSING);
 
         try {
-            if (!parseResult.isSuccess()) {
+            if (!parseResult.getSuccess()) {
                 throw new RuntimeException("文档解析失败：" + parseResult.getErrorMsg());
             }
 

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 @Slf4j
 @Component
@@ -41,17 +42,14 @@ public class ChunkSplitManager implements BeanPostProcessor {
      * 如果文档有清晰的章节结构，使用结构感知分块；否则使用固定窗口分块。
      */
     public List<ChunkResult> chunk(ParseResult parseResult) {
-        return chunk(parseResult, chunkConfig);
-    }
-
-    public List<ChunkResult> chunk(ParseResult parseResult, ChunkConfig config) {
-        if (parseResult == null || !parseResult.isSuccess()) {
+        Boolean success = Optional.ofNullable(parseResult).map(ParseResult::getSuccess).orElse(null);
+        if (!Objects.equals(success, Boolean.TRUE)) {
             return List.of();
         }
 
-        ChunkSplitHandler splitter = getHandler(parseResult, config);
+        ChunkSplitHandler splitter = getHandler(parseResult);
 
-        List<ChunkResult> chunks = splitter.split(parseResult, config);
+        List<ChunkResult> chunks = splitter.split(parseResult, chunkConfig);
 
         // 过滤掉太短的块（少于 20 字符的碎片没有检索价值）
         chunks = chunks.stream()
@@ -67,13 +65,13 @@ public class ChunkSplitManager implements BeanPostProcessor {
     }
 
     /**
-     * 根据文档结构和配置选择对应的分块器
+     * 根据文档结构选择对应的分块器
      */
-    private ChunkSplitHandler getHandler(ParseResult parseResult, ChunkConfig config) {
+    private ChunkSplitHandler getHandler(ParseResult parseResult) {
         // 判断是否应该用结构感知分块：文档有明显标题结构
         boolean hasStructure = parseResult.getPageContentList().stream().anyMatch(temp -> Objects.nonNull(temp.getSectionTitle()));
 
-        ChunkSplitStrategy strategy = hasStructure && config.isStructureAware()
+        ChunkSplitStrategy strategy = hasStructure && chunkConfig.isStructureAware()
                 ? ChunkSplitStrategy.STRUCTURE_AWARE
                 : ChunkSplitStrategy.SLIDING_WINDOW;
 
