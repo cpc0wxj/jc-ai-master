@@ -1,7 +1,8 @@
 package com.jichi.ragkb.service.manager.splitter;
 
+import cn.hutool.core.collection.CollStreamUtil;
 import com.google.common.collect.Maps;
-import com.jichi.ragkb.config.ChunkConfig;
+import com.jichi.ragkb.config.RagChunkProperties;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.enums.ChunkSplitStrategy;
@@ -23,7 +24,7 @@ import java.util.Optional;
 public class ChunkSplitManager implements BeanPostProcessor {
     private static final Map<ChunkSplitStrategy, ChunkSplitHandler> splitterMap = Maps.newHashMap();
 
-    private final ChunkConfig chunkConfig;
+    private final RagChunkProperties ragChunkProperties;
 
     @Override
     public Object postProcessBeforeInitialization(@NonNull Object bean, @NonNull String beanName) throws BeansException {
@@ -49,19 +50,14 @@ public class ChunkSplitManager implements BeanPostProcessor {
 
         ChunkSplitHandler splitter = getHandler(parseResult);
 
-        List<ChunkResult> chunks = splitter.split(parseResult, chunkConfig);
+        List<ChunkResult> chunkResultList = splitter.split(parseResult, ragChunkProperties);
 
         // 过滤掉太短的块（少于 20 字符的碎片没有检索价值）
-        chunks = chunks.stream()
-                .filter(c -> c.getContent().length() >= 20)
-                .toList();
+        chunkResultList = CollStreamUtil.toList(chunkResultList, temp -> temp.getContent().length() >= 20 ? temp : null);
 
-        log.info("[分块] 完成分块：策略={}，共{}块，总字符={}",
-                splitter.getChunkSplitStrategy(),
-                chunks.size(),
-                chunks.stream().mapToInt(c -> c.getContent().length()).sum());
+        log.info("ChunkSplitManager.chunk 分块完成 chunkSplitStrategy={},chunkSize={},charSum={}", splitter.getChunkSplitStrategy(), chunkResultList.size(), chunkResultList.stream().mapToInt(c -> c.getContent().length()).sum());
 
-        return chunks;
+        return chunkResultList;
     }
 
     /**
@@ -71,7 +67,7 @@ public class ChunkSplitManager implements BeanPostProcessor {
         // 判断是否应该用结构感知分块：文档有明显标题结构
         boolean hasStructure = parseResult.getPageContentList().stream().anyMatch(temp -> Objects.nonNull(temp.getSectionTitle()));
 
-        ChunkSplitStrategy strategy = hasStructure && chunkConfig.isStructureAware()
+        ChunkSplitStrategy strategy = hasStructure && ragChunkProperties.getStructureAware()
                 ? ChunkSplitStrategy.STRUCTURE_AWARE
                 : ChunkSplitStrategy.SLIDING_WINDOW;
 

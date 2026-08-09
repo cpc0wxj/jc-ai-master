@@ -1,6 +1,6 @@
 package com.jichi.ragkb.service.handler.splitter;
 
-import com.jichi.ragkb.config.ChunkConfig;
+import com.jichi.ragkb.config.RagChunkProperties;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.enums.ChunkSplitStrategy;
@@ -32,7 +32,7 @@ public class SlidingWindowChunkSplitHandler implements ChunkSplitHandler {
     }
 
     @Override
-    public List<ChunkResult> split(ParseResult parseResult, ChunkConfig config) {
+    public List<ChunkResult> split(ParseResult parseResult, RagChunkProperties ragChunkProperties) {
         List<ChunkResult> chunkResultList = Lists.newArrayList();
         int chunkIndex = 0;
 
@@ -41,7 +41,7 @@ public class SlidingWindowChunkSplitHandler implements ChunkSplitHandler {
                 continue;
             }
 
-            List<String> pageChunkList = splitText(pageContent.getText(), config.getChunkSize(), config.getChunkOverlap());
+            List<String> pageChunkList = splitText(pageContent.getText(), ragChunkProperties.getSize(), ragChunkProperties.getOverlap());
 
             for (String chunkText : pageChunkList) {
                 if (chunkText.isBlank()) {

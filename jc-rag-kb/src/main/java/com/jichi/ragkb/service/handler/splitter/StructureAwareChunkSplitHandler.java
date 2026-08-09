@@ -1,10 +1,10 @@
 package com.jichi.ragkb.service.handler.splitter;
 
-import com.jichi.ragkb.config.ChunkConfig;
+import com.jichi.ragkb.config.RagChunkProperties;
+import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.enums.ChunkSplitStrategy;
 import com.jichi.ragkb.service.manager.splitter.ChunkSplitHandler;
-import com.jichi.ragkb.dto.ChunkResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -14,10 +14,8 @@ import java.util.regex.Pattern;
 
 /**
  * 结构感知分块：优先在标题/段落边界处断开。
- *
  * 适用场景：结构清晰的文档（技术规范、手册等）。
  * 对于流水文字（新闻、小说）效果不如固定窗口。
- *
  * 核心思路：
  * 1. 按标题行切分为若干"节"
  * 2. 节太大则再用固定窗口切分
@@ -42,7 +40,7 @@ public class StructureAwareChunkSplitHandler implements ChunkSplitHandler {
     private final SlidingWindowChunkSplitHandler slidingSplitter = new SlidingWindowChunkSplitHandler();
 
     @Override
-    public List<ChunkResult> split(ParseResult parseResult, ChunkConfig config) {
+    public List<ChunkResult> split(ParseResult parseResult, RagChunkProperties ragChunkProperties) {
         // 先用固定窗口分块，然后按标题边界合并或进一步切分
         List<TextSection> sections = extractSections(parseResult);
         List<ChunkResult> chunks = new ArrayList<>();
@@ -50,7 +48,7 @@ public class StructureAwareChunkSplitHandler implements ChunkSplitHandler {
 
         for (TextSection section : sections) {
             // 节太小（少于50字符）且下一节不是标题开头，合并（在 extractSections 时处理）
-            if (section.text().length() <= config.getChunkSize()) {
+            if (section.text().length() <= ragChunkProperties.getSize()) {
                 // 节大小合适，直接作为一块
                 chunks.add(new ChunkResult()
                         .setChunkIndex(chunkIndex++)
@@ -68,7 +66,7 @@ public class StructureAwareChunkSplitHandler implements ChunkSplitHandler {
                                 .setSectionTitle(section.title())))
                         .setTotalPageNum(1);
 
-                List<ChunkResult> subChunks = slidingSplitter.split(sectionResult, config);
+                List<ChunkResult> subChunks = slidingSplitter.split(sectionResult, ragChunkProperties);
                 for (ChunkResult sub : subChunks) {
                     sub.setChunkIndex(chunkIndex++);
                     if (sub.getSectionTitle() == null) sub.setSectionTitle(section.title());
@@ -119,5 +117,6 @@ public class StructureAwareChunkSplitHandler implements ChunkSplitHandler {
         return (int) (chinese * 1.5 + other * 0.3);
     }
 
-    record TextSection(String title, String text, int pageNum) {}
+    record TextSection(String title, String text, int pageNum) {
+    }
 }
