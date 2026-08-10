@@ -11,6 +11,7 @@ import com.jichi.ragkb.config.RagCacheProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.MapUtils;
 import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
@@ -71,12 +72,10 @@ public class EmbeddingService {
             return Collections.emptyList();
         }
 
-        // 缓存结果容器：key 为原始下标，value 为向量，保证最终顺序一致
-        Map<Integer, float[]> cachedMap = Maps.newHashMap();
-        // 未命中缓存的文本下标列表，用于后续按原始顺序回填
-        List<Integer> missedIndexList = Lists.newArrayList();
-        // 未命中缓存的文本内容列表，按顺序传给 API
-        List<String> missedTextList = Lists.newArrayList();
+        // 结果容器：key 为原始下标，value 为向量，保证最终顺序一致
+        Map<Integer, float[]> resultVectorMap = Maps.newHashMap();
+        // 未命中缓存的文本：key 为原始下标，value 为文本，LinkedHashMap 保证插入顺序以匹配 API 返回顺序
+        Map<Integer, String> missedMap = Maps.newLinkedHashMap();
 
         // 逐条查缓存，区分命中与未命中
         for (int i = 0; i < textList.size(); i++) {
@@ -84,40 +83,35 @@ public class EmbeddingService {
             String cachedValue = redisTemplate.opsForValue().get(cachedKey);
             // 若命中缓存
             if (Objects.nonNull(cachedValue)) {
-                // 反序列化后按原始下标存入结果
-                float[] vector = Convert.convert(float[].class, cachedValue);
-                cachedMap.put(i, vector);
+                resultVectorMap.put(i, Convert.convert(float[].class, cachedValue));
             }
             // 若未命中缓存
             else {
-                // 记录下标和文本，稍后批量调 API
-                missedIndexList.add(i);
-                missedTextList.add(textList.get(i));
+                missedMap.put(i, textList.get(i));
             }
         }
 
-        log.debug("EmbeddingService.embedBatch 总数={}，cachedSize={}，missedSize={}", textList.size(), cachedMap.size(), missedTextList.size());
+        log.debug("EmbeddingService.embedBatch 总数={}，resultVectorMapSize={}，missedSize={}", textList.size(), resultVectorMap.size(), missedMap.size());
 
         // 存在未命中的文本，调 API 获取向量并回写缓存
-        if (CollectionUtils.isNotEmpty(missedTextList)) {
-            List<float[]> newVectors = embedFromApi(missedTextList);
+        if (MapUtils.isNotEmpty(missedMap)) {
+            List<float[]> newVectorList = embedFromApi(missedMap.values());
 
             // 将 API 返回的向量按原始下标回填，并写入缓存
-            for (int j = 0; j < missedIndexList.size(); j++) {
-                int originalIndex = missedIndexList.get(j);
-                float[] vector = newVectors.get(j);
-                cachedMap.put(originalIndex, vector);
+            int idx = 0;
+            for (Map.Entry<Integer, String> entry : missedMap.entrySet()) {
+                float[] vector = newVectorList.get(idx++);
+                resultVectorMap.put(entry.getKey(), vector);
 
                 // 回写缓存，TTL 由配置控制
-                String cacheKey = CACHE_PREFIX + DigestUtil.md5Hex(textList.get(originalIndex));
-                String cacheValue = ArrayUtil.join(vector, ",");
-                redisTemplate.opsForValue().set(cacheKey, cacheValue, ragCacheProperties.getEmbeddingTtl());
+                String cacheKey = CACHE_PREFIX + DigestUtil.md5Hex(entry.getValue());
+                redisTemplate.opsForValue().set(cacheKey, ArrayUtil.join(vector, ","), ragCacheProperties.getEmbeddingTtl());
             }
         }
 
         // 按原始输入顺序组装最终结果
         return IntStream.range(0, textList.size())
-                .mapToObj(cachedMap::get)
+                .mapToObj(resultVectorMap::get)
                 .toList();
     }
 
