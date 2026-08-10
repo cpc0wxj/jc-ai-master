@@ -34,7 +34,7 @@ public class IndexService {
     private final ChunkSplitManager chunkSplitManager;
     private final EmbeddingService embeddingService;
     private final MinioStorageService minioStorageService;
-    private final IndexTaskLauncher indexTaskLauncher;   // 后面会讲为什么要抽出这个类
+    private final IndexTaskLauncher indexTaskLauncher;
 
     /**
      * 提交索引任务（支持直接传入文本，测试时跳过 MinIO）。
@@ -123,7 +123,7 @@ public class IndexService {
             if (CollectionUtils.isEmpty(chunkResultList)) {
                 throw new RuntimeException("分块结果为空，文档可能无有效文本内容");
             }
-            log.info("IndexService.doIndex docId={}，chunkResultListSize={}", docId, chunkResultList.size());
+            log.info("IndexService.doIndex docId={},chunkResultListSize={}", docId, chunkResultList.size());
 
             // 批量 Embedding
             List<String> textList = CollStreamUtil.toList(chunkResultList, ChunkResult::getContent);
@@ -169,9 +169,9 @@ public class IndexService {
                     .setFinishedAt(LocalDateTime.now());
             taskRepository.updateById(indexTask);
 
-            log.info("IndexService.doIndex docId={}，chunkResultListSize={}，totalTokens={}", docId, chunkResultList.size(), totalTokens);
+            log.info("IndexService.doIndex docId={},chunkResultListSize={},totalTokens={}", docId, chunkResultList.size(), totalTokens);
         } catch (Exception e) {
-            log.error("IndexService.doIndex docId={}，error={}", docId, e.getMessage(), e);
+            log.error("IndexService.doIndex docId={},error={}", docId, e.getMessage(), e);
             markFailed(taskId, docId, e.getMessage());
             retryIfPossible(taskId, docId);
         }
@@ -205,7 +205,7 @@ public class IndexService {
             indexTask.setRetryCount(indexTask.getRetryCount() + 1)
                     .setStatus(IndexTask.TaskStatus.PENDING);
             taskRepository.updateById(indexTask);
-            log.info("IndexService.retryIfPossible taskId={}，retryCount={}", taskId, indexTask.getRetryCount());
+            log.info("IndexService.retryIfPossible taskId={},retryCount={}", taskId, indexTask.getRetryCount());
             // 延迟重试（指数退避：1s, 2s, 4s）
             scheduleRetry(taskId, docId, indexTask.getRetryCount());
         }
