@@ -16,6 +16,9 @@ import com.jichi.ragkb.service.manager.splitter.ChunkSplitManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -34,7 +37,10 @@ public class IndexService {
     private final ChunkSplitManager chunkSplitManager;
     private final EmbeddingService embeddingService;
     private final MinioStorageService minioStorageService;
-    private final IndexTaskLauncher indexTaskLauncher;
+
+    @Autowired
+    @Lazy
+    private IndexService self;
 
     /**
      * 提交索引任务（支持直接传入文本，测试时跳过 MinIO）。
@@ -45,8 +51,7 @@ public class IndexService {
                 .setTaskType("INDEX");
         taskRepository.save(indexTask);
 
-        // 通过 taskLauncher 触发异步（不能直接 this.executeWithText，会绕过代理）
-        indexTaskLauncher.launchWithText(indexTask.getId(), docId, textContent);
+        self.executeWithText(indexTask.getId(), docId, textContent);
     }
 
     /**
@@ -58,12 +63,13 @@ public class IndexService {
                 .setTaskType("INDEX");
         taskRepository.save(indexTask);
 
-        indexTaskLauncher.launchFromMinio(indexTask.getId(), docId);
+        self.executeFromMinio(indexTask.getId(), docId);
     }
 
     /**
-     * 执行索引（直接使用文本内容，由 IndexTaskLauncher 异步调用）。
+     * 执行索引（直接使用文本内容）。
      */
+    @Async("indexTaskExecutor")
     public void executeWithText(Long taskId, Long docId, String textContent) {
         KbDocument kbDocument = documentRepository.findById(docId);
         if (Objects.isNull(kbDocument)) {
@@ -81,8 +87,9 @@ public class IndexService {
     }
 
     /**
-     * 从 MinIO 读取文件并执行索引（由 IndexTaskLauncher 异步调用）。
+     * 从 MinIO 读取文件并执行索引。
      */
+    @Async("indexTaskExecutor")
     public void executeFromMinio(Long taskId, Long docId) {
         KbDocument kbDocument = documentRepository.findById(docId);
         if (Objects.isNull(kbDocument)) {
