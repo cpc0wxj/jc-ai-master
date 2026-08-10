@@ -29,7 +29,7 @@ public class IndexTask {
     /**
      * 任务类型包括首次索引和重建索引
      */
-    private String taskType = "INDEX";
+    private String taskType;
     /**
      * 索引任务当前处理状态
      */

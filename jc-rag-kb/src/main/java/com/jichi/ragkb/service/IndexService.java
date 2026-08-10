@@ -1,5 +1,6 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.collection.CollStreamUtil;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.entity.DocChunk;
@@ -12,6 +13,7 @@ import com.jichi.ragkb.service.manager.parse.DocumentParseManager;
 import com.jichi.ragkb.service.manager.splitter.ChunkSplitManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -31,31 +33,50 @@ public class IndexService {
     private final ChunkSplitManager chunkSplitManager;
     private final EmbeddingService embeddingService;
     private final MinioStorageService minioStorageService;
-    private final IndexTaskLauncher taskLauncher;   // 后面会讲为什么要抽出这个类
+    private final IndexTaskLauncher indexTaskLauncher;   // 后面会讲为什么要抽出这个类
 
     /**
      * 提交索引任务（支持直接传入文本，测试时跳过 MinIO）。
      */
     public void submitIndexTask(Long docId, String textContent) {
-        IndexTask task = new IndexTask();
-        task.setDocId(docId);
-        task.setTaskType("INDEX");
-        taskRepository.save(task);
+        IndexTask indexTask = new IndexTask()
+                .setDocId(docId)
+                .setTaskType("INDEX");
+        taskRepository.save(indexTask);
 
         // 通过 taskLauncher 触发异步（不能直接 this.executeWithText，会绕过代理）
-        taskLauncher.launchWithText(task.getId(), docId, textContent);
+        indexTaskLauncher.launchWithText(indexTask.getId(), docId, textContent);
     }
 
     /**
      * 提交索引任务（生产模式，从 MinIO 读取文件）。
      */
     public void submitIndexTask(Long docId) {
-        IndexTask task = new IndexTask();
-        task.setDocId(docId);
-        task.setTaskType("INDEX");
-        taskRepository.save(task);
+        IndexTask indexTask = new IndexTask()
+                .setDocId(docId)
+                .setTaskType("INDEX");
+        taskRepository.save(indexTask);
 
-        taskLauncher.launchFromMinio(task.getId(), docId);
+        indexTaskLauncher.launchFromMinio(indexTask.getId(), docId);
+    }
+
+    /**
+     * 执行索引（直接使用文本内容，由 IndexTaskLauncher 异步调用）。
+     */
+    public void executeWithText(Long taskId, Long docId, String textContent) {
+        KbDocument kbDocument = documentRepository.findById(docId);
+        if (Objects.isNull(kbDocument)) {
+            throw new RuntimeException("文档不存在: " + docId);
+        }
+
+        ParseResult.PageContent pageContent = new ParseResult.PageContent()
+                .setPageNum(1)
+                .setText(textContent);
+        ParseResult parseResult = new ParseResult()
+                .setSuccess(true)
+                .setPageContentList(List.of(pageContent))
+                .setTotalPageNum(1);
+        doIndex(taskId, docId, kbDocument, parseResult);
     }
 
     /**
@@ -77,24 +98,6 @@ public class IndexService {
     }
 
     /**
-     * 执行索引（直接使用文本内容，由 IndexTaskLauncher 异步调用）。
-     */
-    public void executeWithText(Long taskId, Long docId, String textContent) {
-        KbDocument kbDocument = documentRepository.findById(docId);
-        if (Objects.isNull(kbDocument)) {
-            throw new RuntimeException("文档不存在: " + docId);
-        }
-
-        ParseResult parseResult = new ParseResult()
-                .setSuccess(true)
-                .setPageContentList(List.of(new ParseResult.PageContent()
-                        .setPageNum(1)
-                        .setText(textContent)))
-                .setTotalPageNum(1);
-        doIndex(taskId, docId, kbDocument, parseResult);
-    }
-
-    /**
      * 核心索引逻辑：解析 → 分块 → Embedding → 写库。
      * 设计思路：整个管道是"先算后删再写"的顺序，而不是"先删再算再写"。
      * 这样设计是为了保证可用性——如果 Embedding 阶段调 API 失败了，
@@ -106,55 +109,55 @@ public class IndexService {
         updateDocStatus(docId, KbDocument.DocumentStatus.PROCESSING);
 
         try {
-            if (!parseResult.getSuccess()) {
+            if (!Objects.equals(parseResult.getSuccess(), Boolean.TRUE)) {
                 throw new RuntimeException("文档解析失败：" + parseResult.getErrorMsg());
             }
 
-            // 第一步：分块
-            List<ChunkResult> chunks = chunkSplitManager.chunk(parseResult);
-            if (chunks.isEmpty()) {
+            // 分块
+            List<ChunkResult> chunkResultList = chunkSplitManager.chunk(parseResult);
+            if (CollectionUtils.isEmpty(chunkResultList)) {
                 throw new RuntimeException("分块结果为空，文档可能无有效文本内容");
             }
-            log.info("[IndexService] docId={}，分块完成，共{}块", docId, chunks.size());
+            log.info("[IndexService] docId={}，分块完成，共{}块", docId, chunkResultList.size());
 
-            // 第二步：批量 Embedding
-            List<String> texts = chunks.stream().map(ChunkResult::getContent).toList();
-            List<float[]> embeddings = embeddingService.embedBatch(texts);
+            // 批量 Embedding
+            List<String> textList = CollStreamUtil.toList(chunkResultList, ChunkResult::getContent);
+            List<float[]> embeddingList = embeddingService.embedBatch(textList);
 
-            // 第三步：删除旧版本分块（放在 Embedding 成功之后，保证有新数据才删旧数据）
+            // 删除旧版本分块（放在 Embedding 成功之后，保证有新数据才删旧数据）
             chunkRepository.deleteByDocIdAndDocVersionLessThan(docId, kbDocument.getVersion());
 
-            // 第四步：批量写入数据库
-            List<DocChunk> docChunks = new ArrayList<>();
+            // 批量写入数据库
+            List<DocChunk> docChunkList = new ArrayList<>();
             int totalTokens = 0;
-            for (int i = 0; i < chunks.size(); i++) {
-                ChunkResult chunk = chunks.get(i);
-                DocChunk docChunk = new DocChunk();
-                docChunk.setDocId(docId);
-                docChunk.setKbId(kbDocument.getKbId());
-                docChunk.setChunkIndex(chunk.getChunkIndex());
-                docChunk.setContent(chunk.getContent());
-                docChunk.setEmbedding(embeddings.get(i));
-                docChunk.setPageNum(chunk.getPageNum());
-                docChunk.setSectionTitle(chunk.getSectionTitle());
-                docChunk.setTokenCount(chunk.getEstimatedTokens());
-                docChunk.setDocVersion(kbDocument.getVersion());
-                docChunks.add(docChunk);
-                totalTokens += chunk.getEstimatedTokens();
+            for (int i = 0; i < chunkResultList.size(); i++) {
+                ChunkResult chunkResult = chunkResultList.get(i);
+                DocChunk docChunk = new DocChunk()
+                        .setDocId(docId)
+                        .setKbId(kbDocument.getKbId())
+                        .setChunkIndex(chunkResult.getChunkIndex())
+                        .setContent(chunkResult.getContent())
+                        .setEmbedding(embeddingList.get(i))
+                        .setPageNum(chunkResult.getPageNum())
+                        .setSectionTitle(chunkResult.getSectionTitle())
+                        .setTokenCount(chunkResult.getEstimatedTokens())
+                        .setDocVersion(kbDocument.getVersion());
+                docChunkList.add(docChunk);
+                totalTokens += chunkResult.getEstimatedTokens();
             }
 
-            batchInsertChunks(docChunks);
+            batchInsertChunks(docChunkList);
 
-            // 第五步：更新文档状态
-            kbDocument.setStatus(KbDocument.DocumentStatus.DONE);
-            kbDocument.setChunkCount(chunks.size());
-            kbDocument.setTokenCount(totalTokens);
-            kbDocument.setIndexedAt(LocalDateTime.now());
+            // 更新文档状态
+            kbDocument.setStatus(KbDocument.DocumentStatus.DONE)
+                    .setChunkCount(chunkResultList.size())
+                    .setTokenCount(totalTokens)
+                    .setIndexedAt(LocalDateTime.now());
             documentRepository.updateById(kbDocument);
 
             updateTaskStatus(taskId, IndexTask.TaskStatus.DONE);
 
-            log.info("[IndexService] 索引完成：docId={}，chunks={}，tokens={}", docId, chunks.size(), totalTokens);
+            log.info("[IndexService] 索引完成：docId={}，chunkResultList={}，tokens={}", docId, chunkResultList.size(), totalTokens);
         } catch (Exception e) {
             log.error("[IndexService] 索引失败：docId={}，error={}", docId, e.getMessage(), e);
             markFailed(taskId, docId, e.getMessage());
@@ -168,13 +171,12 @@ public class IndexService {
      * 单次 INSERT 几百行对数据库的压力很大（长事务 + 大量 WAL 日志），
      * 分批写可以减少单次事务大小，也方便观察写入进度。
      */
-    private void batchInsertChunks(List<DocChunk> chunks) {
+    private void batchInsertChunks(List<DocChunk> docChunkList) {
         int batchSize = 50;
-        for (int i = 0; i < chunks.size(); i += batchSize) {
-            List<DocChunk> batch = chunks.subList(i, Math.min(i + batchSize, chunks.size()));
+        for (int i = 0; i < docChunkList.size(); i += batchSize) {
+            List<DocChunk> batch = docChunkList.subList(i, Math.min(i + batchSize, docChunkList.size()));
             chunkRepository.saveAll(batch);
-            log.debug("[IndexService] 写入批次 {}/{}",
-                    i / batchSize + 1, (chunks.size() + batchSize - 1) / batchSize);
+            log.debug("[IndexService] 写入批次 {}/{}", i / batchSize + 1, (docChunkList.size() + batchSize - 1) / batchSize);
         }
     }
 
@@ -204,8 +206,8 @@ public class IndexService {
         }
 
         if (indexTask.canRetry()) {
-            indexTask.setRetryCount(indexTask.getRetryCount() + 1);
-            indexTask.setStatus(IndexTask.TaskStatus.PENDING);
+            indexTask.setRetryCount(indexTask.getRetryCount() + 1)
+                    .setStatus(IndexTask.TaskStatus.PENDING);
             taskRepository.updateById(indexTask);
             log.info("[IndexService] 任务将重试：taskId={}，retryCount={}", taskId, indexTask.getRetryCount());
             // 延迟重试（指数退避：1s, 2s, 4s）
@@ -229,29 +231,29 @@ public class IndexService {
         }
     }
 
-    private void updateTaskStatus(Long taskId, IndexTask.TaskStatus status) {
+    private void updateTaskStatus(Long taskId, IndexTask.TaskStatus taskStatus) {
         IndexTask indexTask = taskRepository.findById(taskId);
         if (Objects.isNull(indexTask)) {
             return;
         }
 
-        indexTask.setStatus(status);
-        if (status == IndexTask.TaskStatus.RUNNING) {
+        indexTask.setStatus(taskStatus);
+        if (Objects.equals(taskStatus, IndexTask.TaskStatus.RUNNING)) {
             indexTask.setStartedAt(LocalDateTime.now());
         }
-        if (status == IndexTask.TaskStatus.DONE) {
+        if (Objects.equals(taskStatus, IndexTask.TaskStatus.DONE)) {
             indexTask.setFinishedAt(LocalDateTime.now());
         }
         taskRepository.updateById(indexTask);
     }
 
-    private void updateDocStatus(Long docId, KbDocument.DocumentStatus status) {
+    private void updateDocStatus(Long docId, KbDocument.DocumentStatus documentStatus) {
         KbDocument kbDocument = documentRepository.findById(docId);
         if (Objects.isNull(kbDocument)) {
             return;
         }
 
-        kbDocument.setStatus(status);
+        kbDocument.setStatus(documentStatus);
         documentRepository.updateById(kbDocument);
     }
 }

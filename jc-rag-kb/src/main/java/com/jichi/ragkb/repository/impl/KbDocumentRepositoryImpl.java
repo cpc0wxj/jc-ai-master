@@ -15,11 +15,6 @@ import java.util.List;
 @Repository
 public class KbDocumentRepositoryImpl extends ServiceImpl<KbDocumentMapper, KbDocument> implements KbDocumentRepository {
     @Override
-    public KbDocument findById(Long id) {
-        return getById(id);
-    }
-
-    @Override
     public boolean save(KbDocument entity) {
         return super.save(entity);
     }
@@ -30,20 +25,30 @@ public class KbDocumentRepositoryImpl extends ServiceImpl<KbDocumentMapper, KbDo
     }
 
     @Override
+    public KbDocument findById(Long id) {
+        return getById(id);
+    }
+
+    @Override
     public long count() {
         return super.count();
     }
 
     @Override
     public long countByStatus(KbDocument.DocumentStatus status) {
-        return count(new LambdaQueryWrapper<KbDocument>()
-                .eq(KbDocument::getStatus, status));
+        LambdaQueryWrapper<KbDocument> lambdaQueryWrapper = new LambdaQueryWrapper<KbDocument>()
+                .eq(KbDocument::getStatus, status)
+                .eq(KbDocument::getIsDeleted, false);
+
+        return count(lambdaQueryWrapper);
     }
 
     @Override
     public List<KbDocument> findByKbIdAndIsDeletedFalse(Long kbId) {
-        return list(new LambdaQueryWrapper<KbDocument>()
+        LambdaQueryWrapper<KbDocument> lambdaQueryWrapper = new LambdaQueryWrapper<KbDocument>()
                 .eq(KbDocument::getKbId, kbId)
-                .eq(KbDocument::getIsDeleted, false));
+                .eq(KbDocument::getIsDeleted, false);
+
+        return list(lambdaQueryWrapper);
     }
 }

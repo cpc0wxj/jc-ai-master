@@ -8,10 +8,6 @@ import java.util.List;
  * 知识库文档 Repository 接口
  */
 public interface KbDocumentRepository {
-    /**
-     * 根据主键 ID 查询文档
-     */
-    KbDocument findById(Long id);
 
     /**
      * 新增文档（INSERT），主键自动回填到实体
@@ -22,6 +18,11 @@ public interface KbDocumentRepository {
      * 根据主键 ID 更新文档（UPDATE）
      */
     boolean updateById(KbDocument entity);
+
+    /**
+     * 根据主键 ID 查询文档
+     */
+    KbDocument findById(Long id);
 
     /**
      * 查询文档总数

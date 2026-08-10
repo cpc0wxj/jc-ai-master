@@ -17,13 +17,13 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class IndexTaskRepositoryImpl extends ServiceImpl<IndexTaskMapper, IndexTask> implements IndexTaskRepository {
     @Override
-    public IndexTask findById(Long id) {
-        return getById(id);
+    public boolean save(IndexTask entity) {
+        return super.save(entity);
     }
 
     @Override
-    public boolean save(IndexTask entity) {
-        return super.save(entity);
+    public IndexTask findById(Long id) {
+        return getById(id);
     }
 
     @Override
