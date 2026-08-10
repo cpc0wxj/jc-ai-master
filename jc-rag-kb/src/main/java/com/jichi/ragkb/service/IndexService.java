@@ -1,6 +1,7 @@
 package com.jichi.ragkb.service;
 
 import cn.hutool.core.collection.CollStreamUtil;
+import cn.hutool.core.collection.ListUtil;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.entity.DocChunk;
@@ -146,7 +147,10 @@ public class IndexService {
                 totalTokens += chunkResult.getEstimatedTokens();
             }
 
-            batchInsertChunks(docChunkList);
+            // 分批写入，每批 50 条
+            for (List<DocChunk> batchList : ListUtil.split(docChunkList, 50)) {
+                chunkRepository.saveAll(batchList);
+            }
 
             // 更新文档状态
             kbDocument.setStatus(KbDocument.DocumentStatus.DONE)
@@ -162,21 +166,6 @@ public class IndexService {
             log.error("[IndexService] 索引失败：docId={}，error={}", docId, e.getMessage(), e);
             markFailed(taskId, docId, e.getMessage());
             retryIfPossible(taskId, docId);
-        }
-    }
-
-    /**
-     * 分批写入，每批 50 条。
-     * 为什么不直接 saveAll 一把梭？因为一份大文档可能有几百个 chunk，
-     * 单次 INSERT 几百行对数据库的压力很大（长事务 + 大量 WAL 日志），
-     * 分批写可以减少单次事务大小，也方便观察写入进度。
-     */
-    private void batchInsertChunks(List<DocChunk> docChunkList) {
-        int batchSize = 50;
-        for (int i = 0; i < docChunkList.size(); i += batchSize) {
-            List<DocChunk> batch = docChunkList.subList(i, Math.min(i + batchSize, docChunkList.size()));
-            chunkRepository.saveAll(batch);
-            log.debug("[IndexService] 写入批次 {}/{}", i / batchSize + 1, (docChunkList.size() + batchSize - 1) / batchSize);
         }
     }
 
