@@ -1,176 +1,231 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.collection.CollStreamUtil;
+import cn.hutool.crypto.digest.DigestUtil;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.jichi.ragkb.config.RagCacheProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
+import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
+/**
+ * 向量化服务
+ * 负责将文本转换为向量表示，支持批量处理与 Redis 缓存，避免重复调用 Embedding API
+ * 核心流程：先查 Redis 缓存，缓存未命中的文本批量调 API，结果回写缓存
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class EmbeddingService {
-
+    /**
+     * Spring AI 提供的嵌入模型，用于调用底层 Embedding API
+     */
     private final EmbeddingModel embeddingModel;
+    /**
+     * Redis 操作模板，用于读写向量缓存
+     */
     private final StringRedisTemplate redisTemplate;
-
+    /**
+     * RAG 缓存配置，提供向量缓存的 TTL 等参数
+     */
+    private final RagCacheProperties ragCacheProperties;
+    /**
+     * Redis 缓存 Key 前缀，v1 为版本号，便于缓存整体失效时升级版本
+     */
     private static final String CACHE_PREFIX = "emb:v1:";
-
-    @Value("${rag.cache.embedding-ttl:7d}")
-    private Duration embeddingTtl;
-
+    /**
+     * 单次 API 请求的最大文本数量，避免单次请求过大导致超限或超时
+     */
     private static final int BATCH_SIZE = 20;
 
     /**
-     * 批量向量化，带 Redis 缓存。
-     * 先查缓存，缓存未命中的批量调 API，结果写入缓存。
+     * 批量向量化，带 Redis 缓存
+     *   <li>遍历输入文本，逐条查 Redis 缓存</li>
+     *   <li>缓存命中的直接反序列化复用，未命中的收集到待请求列表</li>
+     *   <li>对未命中的文本批量调 Embedding API，结果回写缓存</li>
+     *   <li>按原始输入顺序组装并返回完整向量列表</li>
      *
-     * @param texts 待向量化的文本列表
-     * @return 与输入顺序对应的向量列表
+     * @param textList 待向量化的文本列表
+     * @return 与输入顺序对应的向量列表，空输入返回空列表
      */
-    public List<float[]> embedBatch(List<String> texts) {
-        if (texts == null || texts.isEmpty()) return List.of();
+    public List<float[]> embedBatch(List<String> textList) {
+        // 空列表快速返回，避免无意义的缓存查询和 API 调用
+        if (CollectionUtils.isEmpty(textList)) {
+            return Collections.emptyList();
+        }
 
-        Map<Integer, float[]> cached = new HashMap<>();
-        List<Integer> missedIndices = new ArrayList<>();
-        List<String> missedTexts = new ArrayList<>();
+        // 缓存结果容器：key 为原始下标，value 为向量，保证最终顺序一致
+        Map<Integer, float[]> cachedMap = Maps.newHashMap();
+        // 未命中缓存的文本下标列表，用于后续按原始顺序回填
+        List<Integer> missedIndexList = Lists.newArrayList();
+        // 未命中缓存的文本内容列表，按顺序传给 API
+        List<String> missedTextList = Lists.newArrayList();
 
-        for (int i = 0; i < texts.size(); i++) {
-            String cacheKey = buildCacheKey(texts.get(i));
-            String cachedStr = redisTemplate.opsForValue().get(cacheKey);
-            if (cachedStr != null) {
-                cached.put(i, deserializeVector(cachedStr));
-            } else {
-                missedIndices.add(i);
-                missedTexts.add(texts.get(i));
+        // 逐条查缓存，区分命中与未命中
+        for (int i = 0; i < textList.size(); i++) {
+            String cachedKey = CACHE_PREFIX + toMd5(textList.get(i));
+            String cachedValue = redisTemplate.opsForValue().get(cachedKey);
+            // 若命中缓存
+            if (Objects.nonNull(cachedValue)) {
+                // 反序列化后按原始下标存入结果
+                float[] vector = deserializeVector(cachedValue);
+                cachedMap.put(i, vector);
+            }
+            // 若未命中缓存
+            else {
+                // 记录下标和文本，稍后批量调 API
+                missedIndexList.add(i);
+                missedTextList.add(textList.get(i));
             }
         }
 
-        log.debug("[Embedding] 总数={}，缓存命中={}，需要调API={}",
-                texts.size(), cached.size(), missedTexts.size());
+        log.debug("EmbeddingService.embedBatch 总数={}，cachedSize={}，missedSize={}", textList.size(), cachedMap.size(), missedTextList.size());
 
-        if (!missedTexts.isEmpty()) {
-            List<float[]> newVectors = embedFromApi(missedTexts);
+        // 存在未命中的文本，调 API 获取向量并回写缓存
+        if (CollectionUtils.isNotEmpty(missedTextList)) {
+            List<float[]> newVectors = embedFromApi(missedTextList);
 
-            for (int j = 0; j < missedIndices.size(); j++) {
-                int originalIndex = missedIndices.get(j);
+            // 将 API 返回的向量按原始下标回填，并写入缓存
+            for (int j = 0; j < missedIndexList.size(); j++) {
+                int originalIndex = missedIndexList.get(j);
                 float[] vector = newVectors.get(j);
-                cached.put(originalIndex, vector);
+                cachedMap.put(originalIndex, vector);
 
-                String cacheKey = buildCacheKey(texts.get(originalIndex));
-                redisTemplate.opsForValue().set(cacheKey, serializeVector(vector), embeddingTtl);
+                // 回写缓存，TTL 由配置控制
+                String cacheKey = CACHE_PREFIX + toMd5(textList.get(originalIndex));
+                redisTemplate.opsForValue().set(cacheKey, serializeVector(vector), ragCacheProperties.getEmbeddingTtl());
             }
         }
 
-        return IntStream.range(0, texts.size())
-                .mapToObj(cached::get)
+        // 按原始输入顺序组装最终结果
+        return IntStream.range(0, textList.size())
+                .mapToObj(cachedMap::get)
                 .toList();
     }
 
     /**
-     * 调 Embedding API，按批次处理，避免单次请求过大。
-     * 带重试：网络抖动时自动重试 3 次，指数退避。
+     * 调 Embedding API，按批次处理，避免单次请求过大
+     * 带重试机制：网络抖动时自动重试 5 次，指数退避（1s → 2s → 4s → 8s → 16s）
+     *
+     * @param textList 待向量化的文本列表
+     * @return 与输入顺序对应的向量列表
      */
-    @Retryable(
-        retryFor = Exception.class,
-        maxAttempts = 3,
-        backoff = @Backoff(delay = 1000, multiplier = 2)
-    )
-    public List<float[]> embedFromApi(List<String> texts) {
-        List<float[]> result = new ArrayList<>();
+    @Retryable(retryFor = Exception.class, maxAttempts = 5, backoff = @Backoff(delay = 1000, multiplier = 2))
+    public List<float[]> embedFromApi(List<String> textList) {
+        List<float[]> resultList = Collections.emptyList();
+        // 累计 Token 消耗，用于成本监控
         AtomicInteger totalTokens = new AtomicInteger(0);
 
-        // 分批提交
-        for (int start = 0; start < texts.size(); start += BATCH_SIZE) {
-            int end = Math.min(start + BATCH_SIZE, texts.size());
-            List<String> batch = texts.subList(start, end);
+        // 按 BATCH_SIZE 分批提交，避免单次请求过大导致超限或超时
+        for (int start = 0; start < textList.size(); start += BATCH_SIZE) {
+            // 计算当前批次的结束位置，不超过文本总长度
+            int end = Math.min(start + BATCH_SIZE, textList.size());
+            List<String> batch = textList.subList(start, end);
 
+            // 记录批次耗时，用于性能监控
             long batchStart = System.currentTimeMillis();
-            EmbeddingResponse response = embeddingModel.call(
-                    new EmbeddingRequest(batch, null));
+            EmbeddingResponse embeddingResponse = embeddingModel.call(new EmbeddingRequest(batch, null));
             long elapsed = System.currentTimeMillis() - batchStart;
 
             // 统计 Token 消耗（用于成本监控）
-            if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
-                long tokens = response.getMetadata().getUsage().getTotalTokens();
-                totalTokens.addAndGet((int) tokens);
-            }
+            totalTokens.addAndGet(embeddingResponse.getMetadata().getUsage().getTotalTokens());
 
-            // 按顺序提取向量
+            // 按 index 排序后提取向量，确保与输入顺序一致
             // Spring AI 1.1.x：Embedding.getOutput() 返回 float[]
-            response.getResults().stream()
-                    .sorted(Comparator.comparingInt(r -> r.getIndex()))
-                    .forEach(r -> result.add(r.getOutput()));
+            List<Embedding> embeddingList = embeddingResponse.getResults().stream()
+                    .sorted(Comparator.comparingInt(Embedding::getIndex))
+                    .toList();
+            resultList = CollStreamUtil.toList(embeddingList, Embedding::getOutput);
 
-            log.debug("[Embedding] 批次{}/{}，size={}，耗时={}ms",
-                    start / BATCH_SIZE + 1,
-                    (texts.size() + BATCH_SIZE - 1) / BATCH_SIZE,
-                    batch.size(), elapsed);
+            log.debug("[Embedding] 批次{}/{}，size={}，耗时={}ms", start / BATCH_SIZE + 1, (textList.size() + BATCH_SIZE - 1) / BATCH_SIZE, batch.size(), elapsed);
         }
 
-        log.info("[Embedding] API调用完成，共{}条，消耗Token={}",
-                texts.size(), totalTokens.get());
+        log.info("[Embedding] API调用完成，共{}条，消耗Token={}", textList.size(), totalTokens.get());
 
-        return result;
-    }
-
-    /** 重试 3 次后仍失败的兜底方法 */
-    @Recover
-    public List<float[]> embedFromApiFallback(Exception e, List<String> texts) {
-        log.error("[Embedding] 重试3次后仍失败，texts.size={}，error={}",
-                texts.size(), e.getMessage());
-        throw new RuntimeException("Embedding API 调用失败，已重试3次：" + e.getMessage(), e);
-    }
-
-    /** 单条向量化（查询时使用） */
-    public float[] embed(String text) {
-        List<float[]> result = embedBatch(List.of(text));
-        return result.isEmpty() ? new float[0] : result.get(0);
-    }
-
-    private String buildCacheKey(String text) {
-        // 用内容的 MD5 作为缓存 Key，避免 Key 过长
-        return CACHE_PREFIX + toMd5(text);
-    }
-
-    private String toMd5(String text) {
-        try {
-            var md = java.security.MessageDigest.getInstance("MD5");
-            byte[] hash = md.digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hash) sb.append(String.format("%02x", b));
-            return sb.toString();
-        } catch (Exception e) {
-            return String.valueOf(text.hashCode());
-        }
+        return resultList;
     }
 
     /**
-     * float[] 转逗号分隔字符串存入 Redis。
-     * 不用 JSON 序列化器，避免 GenericJackson2JsonRedisSerializer
-     * 把浮点数当类名解析导致反序列化失败。
+     * 重试耗尽后的兜底方法
+     * 当 embedFromApi 重试达到最大次数仍失败时触发，记录错误日志并抛出异常
+     *
+     * @param e     最后一次重试抛出的异常
+     * @param texts 触发失败的文本列表
      */
-    private String serializeVector(float[] vector) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < vector.length; i++) {
-            if (i > 0) sb.append(',');
-            sb.append(vector[i]);
-        }
-        return sb.toString();
+    @Recover
+    public List<float[]> embedFromApiFallback(Exception e, List<String> texts) {
+        log.error("[Embedding] 重试3次后仍失败，texts.size={}，error={}", texts.size(), e.getMessage());
+        throw new RuntimeException("Embedding API 调用失败，已重试3次：" + e.getMessage(), e);
     }
 
+    /**
+     * 单条向量化（查询时使用）
+     * 复用 embedBatch 的缓存逻辑，单条查询也能命中缓存
+     *
+     * @param text 待向量化的文本
+     * @return 向量数组，失败时返回空数组
+     */
+    public float[] embed(String text) {
+        List<float[]> result = embedBatch(List.of(text));
+        return CollectionUtils.isNotEmpty(result) ? result.getFirst() : new float[0];
+    }
+
+    /**
+     * 计算文本的 MD5 摘要
+     * 使用 Hutool 的 DigestUtil.md5Hex，内部已处理 UTF-8 编码与十六进制转换
+     *
+     * @param text 原始文本
+     * @return 32 位十六进制 MD5 字符串
+     */
+    private String toMd5(String text) {
+        return DigestUtil.md5Hex(text);
+    }
+
+    /**
+     * float[] 转逗号分隔字符串存入 Redis
+     * <p>不用 JSON 序列化器，避免 GenericJackson2JsonRedisSerializer
+     * 把浮点数当类名解析导致反序列化失败</p>
+     *
+     * @param vector 待序列化的向量
+     * @return 逗号分隔的浮点数字符串
+     */
+    private String serializeVector(float[] vector) {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        for (int i = 0; i < vector.length; i++) {
+            // 非首个元素前补逗号分隔符
+            if (i > 0) {
+                stringBuilder.append(',');
+            }
+            stringBuilder.append(vector[i]);
+        }
+
+        return stringBuilder.toString();
+    }
+
+    /**
+     * 将逗号分隔字符串反序列化为 float[]
+     * 兼容带方括号或空格的格式，清理后再解析
+     *
+     * @param str Redis 中存储的向量字符串
+     * @return 反序列化后的向量数组
+     */
     private float[] deserializeVector(String str) {
+        // 清理可能存在的方括号和空格，兼容多种格式
         str = str.replace("[", "").replace("]", "").replace(" ", "");
         String[] parts = str.split(",");
         float[] vector = new float[parts.length];
@@ -179,5 +234,4 @@ public class EmbeddingService {
         }
         return vector;
     }
-
 }
