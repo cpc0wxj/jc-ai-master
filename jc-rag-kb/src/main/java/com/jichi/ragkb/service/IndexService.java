@@ -16,8 +16,7 @@ import com.jichi.ragkb.service.manager.splitter.ChunkSplitManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -38,10 +37,6 @@ public class IndexService {
     private final EmbeddingService embeddingService;
     private final MinioStorageService minioStorageService;
 
-    @Autowired
-    @Lazy
-    private IndexService self;
-
     /**
      * 提交索引任务（支持直接传入文本，测试时跳过 MinIO）。
      */
@@ -51,7 +46,7 @@ public class IndexService {
                 .setTaskType("INDEX");
         taskRepository.save(indexTask);
 
-        self.executeWithText(indexTask.getId(), docId, textContent);
+        ((IndexService) AopContext.currentProxy()).executeWithText(indexTask.getId(), docId, textContent);
     }
 
     /**
@@ -63,7 +58,7 @@ public class IndexService {
                 .setTaskType("INDEX");
         taskRepository.save(indexTask);
 
-        self.executeFromMinio(indexTask.getId(), docId);
+        ((IndexService) AopContext.currentProxy()).executeFromMinio(indexTask.getId(), docId);
     }
 
     /**
