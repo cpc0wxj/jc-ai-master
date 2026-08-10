@@ -13,20 +13,12 @@ spring:
       minimum-idle: 5
       connection-timeout: 30000
 
-  jpa:
-    hibernate:
-      ddl-auto: validate          # 生产用 validate，不自动改表结构
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
-
-# ========== MyBatis-Plus（与 JPA 共存） ==========
+# ========== MyBatis-Plus ==========
 mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
-    # 枚举默认用 name() 存取，与 JPA @Enumerated(STRING) 行为一致
+    # 枚举默认用 name() 存取
     default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
   global-config:
     db-config:

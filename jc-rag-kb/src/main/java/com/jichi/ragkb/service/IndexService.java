@@ -38,7 +38,7 @@ public class IndexService {
     private final MinioStorageService minioStorageService;
 
     /**
-     * 提交索引任务（支持直接传入文本，测试时跳过 MinIO）。
+     * 提交索引任务（支持直接传入文本，测试时跳过 MinIO）
      */
     public void submitIndexTask(Long docId, String textContent) {
         IndexTask indexTask = new IndexTask()
@@ -46,11 +46,12 @@ public class IndexService {
                 .setTaskType("INDEX");
         taskRepository.save(indexTask);
 
+        // 异步执行任务
         ((IndexService) AopContext.currentProxy()).executeWithText(indexTask.getId(), docId, textContent);
     }
 
     /**
-     * 提交索引任务（生产模式，从 MinIO 读取文件）。
+     * 提交索引任务（生产模式，从 MinIO 读取文件）
      */
     public void submitIndexTask(Long docId) {
         IndexTask indexTask = new IndexTask()
@@ -58,11 +59,12 @@ public class IndexService {
                 .setTaskType("INDEX");
         taskRepository.save(indexTask);
 
+        // 异步执行任务
         ((IndexService) AopContext.currentProxy()).executeFromMinio(indexTask.getId(), docId);
     }
 
     /**
-     * 执行索引（直接使用文本内容）。
+     * 执行索引（直接使用文本内容）
      */
     @Async("indexTaskExecutor")
     public void executeWithText(Long taskId, Long docId, String textContent) {
@@ -155,7 +157,7 @@ public class IndexService {
 
             // 分批写入，每批 50 条
             for (List<DocChunk> batchList : ListUtil.split(docChunkList, 50)) {
-                chunkRepository.saveAll(batchList);
+                chunkRepository.saveBatch(batchList);
             }
 
             // 更新文档状态

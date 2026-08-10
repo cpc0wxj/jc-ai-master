@@ -47,21 +47,10 @@
         <!-- DashScope（通义千问）兼容 OpenAI 接口，直接用上面的依赖即可 -->
 
         <!-- ========== 数据库 ========== -->
-        <!-- JPA -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
         <!-- PostgreSQL 驱动 -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-        </dependency>
-        <!-- PGVector JPA 支持：Hibernate 6.4+ 原生向量类型映射 -->
-        <dependency>
-            <groupId>org.hibernate.orm</groupId>
-            <artifactId>hibernate-vector</artifactId>
-            <version>${hibernate.version}</version>
         </dependency>
 
         <!-- ========== Redis ========== -->

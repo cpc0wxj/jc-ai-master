@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jichi.ragkb.mapper.DocChunkMapper">
+    <!-- 向量相似度检索（余弦相似度） -->
+    <!-- PGVector 的 <=> 操作符：余弦距离，距离越小越相似 -->
+    <!-- resultMap 引用 MyBatis-Plus autoResultMap 生成的映射，确保 embedding 字段经过 FloatVectorTypeHandler 转换 -->
+    <select id="findByVectorSimilarity" resultMap="mybatis-plus_DocChunk">
+        SELECT * FROM kb_doc_chunk
+        WHERE kb_id = #{kbId}
+        ORDER BY embedding <![CDATA[<=>]]> CAST(#{embedding} AS vector)
+        LIMIT #{topK}
+    </select>
+
+    <!-- 全文检索（PostgreSQL 全文搜索） -->
+    <!-- to_tsquery('simple', :query) 匹配 content_tsv，simple 配置不做词干化，适合中文关键词 -->
+    <!-- ts_rank 排序确保最相关结果在前，实际分数由调用方用 RRF 融合处理 -->
+    <select id="findByFullTextSearch" resultMap="mybatis-plus_DocChunk">
+        SELECT * FROM kb_doc_chunk
+        WHERE kb_id = #{kbId}
+          AND content_tsv @@ to_tsquery('simple', #{tsQuery})
+        ORDER BY ts_rank(content_tsv, to_tsquery('simple', #{tsQuery})) DESC
+        LIMIT #{topK}
+    </select>
+</mapper>
