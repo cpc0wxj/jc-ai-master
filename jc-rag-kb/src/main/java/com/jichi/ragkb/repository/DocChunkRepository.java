@@ -14,14 +14,14 @@ public interface DocChunkRepository {
     boolean saveBatch(List<DocChunk> entities);
 
     /**
-     * 查询分块总数
-     */
-    long count();
-
-    /**
      * 删除指定文档的旧版本分块（重建索引时使用）
      */
     boolean deleteByDocIdAndDocVersionLessThan(Long docId, Integer version);
+
+    /**
+     * 查询分块总数
+     */
+    long count();
 
     /**
      * 按文档 ID 查询所有分块

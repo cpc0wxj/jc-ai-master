@@ -20,15 +20,15 @@ public class DocChunkRepositoryImpl extends ServiceImpl<DocChunkMapper, DocChunk
     }
 
     @Override
-    public long count() {
-        return super.count();
-    }
-
-    @Override
     public boolean deleteByDocIdAndDocVersionLessThan(Long docId, Integer version) {
         return remove(new LambdaQueryWrapper<DocChunk>()
                 .eq(DocChunk::getDocId, docId)
                 .lt(DocChunk::getDocVersion, version));
+    }
+
+    @Override
+    public long count() {
+        return super.count();
     }
 
     @Override

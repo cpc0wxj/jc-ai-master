@@ -9,10 +9,6 @@ import org.springframework.stereotype.Repository;
 
 /**
  * 索引任务 Repository 实现
- * <p>
- * 继承 MyBatis-Plus 的 ServiceImpl，获得 BaseMapper 和 IService 能力；
- * 实现 IndexTaskRepository 纯接口，对外只暴露显式声明的方法。
- * Service 层依赖 IndexTaskRepository 接口，不感知 MyBatis-Plus 的存在。
  */
 @Repository
 public class IndexTaskRepositoryImpl extends ServiceImpl<IndexTaskMapper, IndexTask> implements IndexTaskRepository {
@@ -22,13 +18,13 @@ public class IndexTaskRepositoryImpl extends ServiceImpl<IndexTaskMapper, IndexT
     }
 
     @Override
-    public IndexTask findById(Long id) {
-        return getById(id);
+    public boolean updateById(IndexTask entity) {
+        return super.updateById(entity);
     }
 
     @Override
-    public boolean updateById(IndexTask entity) {
-        return super.updateById(entity);
+    public IndexTask findById(Long id) {
+        return getById(id);
     }
 
     @Override

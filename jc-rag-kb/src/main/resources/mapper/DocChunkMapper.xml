@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.jichi.ragkb.mapper.DocChunkMapper">
     <!-- 向量相似度检索（余弦相似度） -->
     <!-- PGVector 的 <=> 操作符：余弦距离，距离越小越相似 -->
@@ -21,4 +22,5 @@
         ORDER BY ts_rank(content_tsv, to_tsquery('simple', #{tsQuery})) DESC
         LIMIT #{topK}
     </select>
+
 </mapper>

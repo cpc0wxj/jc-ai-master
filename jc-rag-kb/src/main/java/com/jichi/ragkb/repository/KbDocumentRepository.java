@@ -8,7 +8,6 @@ import java.util.List;
  * 知识库文档 Repository 接口
  */
 public interface KbDocumentRepository {
-
     /**
      * 新增文档（INSERT），主键自动回填到实体
      */
