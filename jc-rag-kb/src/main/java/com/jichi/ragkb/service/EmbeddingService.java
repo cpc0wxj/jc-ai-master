@@ -1,6 +1,8 @@
 package com.jichi.ragkb.service;
 
 import cn.hutool.core.collection.CollStreamUtil;
+import cn.hutool.core.convert.Convert;
+import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -54,10 +56,10 @@ public class EmbeddingService {
 
     /**
      * 批量向量化，带 Redis 缓存
-     *   <li>遍历输入文本，逐条查 Redis 缓存</li>
-     *   <li>缓存命中的直接反序列化复用，未命中的收集到待请求列表</li>
-     *   <li>对未命中的文本批量调 Embedding API，结果回写缓存</li>
-     *   <li>按原始输入顺序组装并返回完整向量列表</li>
+     * <li>遍历输入文本，逐条查 Redis 缓存</li>
+     * <li>缓存命中的直接反序列化复用，未命中的收集到待请求列表</li>
+     * <li>对未命中的文本批量调 Embedding API，结果回写缓存</li>
+     * <li>按原始输入顺序组装并返回完整向量列表</li>
      *
      * @param textList 待向量化的文本列表
      * @return 与输入顺序对应的向量列表，空输入返回空列表
@@ -77,12 +79,12 @@ public class EmbeddingService {
 
         // 逐条查缓存，区分命中与未命中
         for (int i = 0; i < textList.size(); i++) {
-            String cachedKey = CACHE_PREFIX + toMd5(textList.get(i));
+            String cachedKey = CACHE_PREFIX + DigestUtil.md5Hex(textList.get(i));
             String cachedValue = redisTemplate.opsForValue().get(cachedKey);
             // 若命中缓存
             if (Objects.nonNull(cachedValue)) {
                 // 反序列化后按原始下标存入结果
-                float[] vector = deserializeVector(cachedValue);
+                float[] vector = Convert.convert(float[].class, cachedValue);
                 cachedMap.put(i, vector);
             }
             // 若未命中缓存
@@ -106,8 +108,9 @@ public class EmbeddingService {
                 cachedMap.put(originalIndex, vector);
 
                 // 回写缓存，TTL 由配置控制
-                String cacheKey = CACHE_PREFIX + toMd5(textList.get(originalIndex));
-                redisTemplate.opsForValue().set(cacheKey, serializeVector(vector), ragCacheProperties.getEmbeddingTtl());
+                String cacheKey = CACHE_PREFIX + DigestUtil.md5Hex(textList.get(originalIndex));
+                String cacheValue = ArrayUtil.join(vector, ",");
+                redisTemplate.opsForValue().set(cacheKey, cacheValue, ragCacheProperties.getEmbeddingTtl());
             }
         }
 
@@ -182,56 +185,5 @@ public class EmbeddingService {
     public float[] embed(String text) {
         List<float[]> result = embedBatch(List.of(text));
         return CollectionUtils.isNotEmpty(result) ? result.getFirst() : new float[0];
-    }
-
-    /**
-     * 计算文本的 MD5 摘要
-     * 使用 Hutool 的 DigestUtil.md5Hex，内部已处理 UTF-8 编码与十六进制转换
-     *
-     * @param text 原始文本
-     * @return 32 位十六进制 MD5 字符串
-     */
-    private String toMd5(String text) {
-        return DigestUtil.md5Hex(text);
-    }
-
-    /**
-     * float[] 转逗号分隔字符串存入 Redis
-     * <p>不用 JSON 序列化器，避免 GenericJackson2JsonRedisSerializer
-     * 把浮点数当类名解析导致反序列化失败</p>
-     *
-     * @param vector 待序列化的向量
-     * @return 逗号分隔的浮点数字符串
-     */
-    private String serializeVector(float[] vector) {
-        StringBuilder stringBuilder = new StringBuilder();
-
-        for (int i = 0; i < vector.length; i++) {
-            // 非首个元素前补逗号分隔符
-            if (i > 0) {
-                stringBuilder.append(',');
-            }
-            stringBuilder.append(vector[i]);
-        }
-
-        return stringBuilder.toString();
-    }
-
-    /**
-     * 将逗号分隔字符串反序列化为 float[]
-     * 兼容带方括号或空格的格式，清理后再解析
-     *
-     * @param str Redis 中存储的向量字符串
-     * @return 反序列化后的向量数组
-     */
-    private float[] deserializeVector(String str) {
-        // 清理可能存在的方括号和空格，兼容多种格式
-        str = str.replace("[", "").replace("]", "").replace(" ", "");
-        String[] parts = str.split(",");
-        float[] vector = new float[parts.length];
-        for (int i = 0; i < parts.length; i++) {
-            vector[i] = Float.parseFloat(parts[i]);
-        }
-        return vector;
     }
 }
