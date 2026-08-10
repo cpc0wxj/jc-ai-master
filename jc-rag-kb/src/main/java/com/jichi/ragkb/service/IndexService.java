@@ -106,7 +106,11 @@ public class IndexService {
      * 只有当新向量算完、确定能写入了，才去删旧数据。
      */
     private void doIndex(Long taskId, Long docId, KbDocument kbDocument, ParseResult parseResult) {
-        updateTaskStatus(taskId, IndexTask.TaskStatus.RUNNING);
+        IndexTask indexTask = new IndexTask()
+                .setId(taskId)
+                .setStatus(IndexTask.TaskStatus.RUNNING)
+                .setStartedAt(LocalDateTime.now());
+        taskRepository.updateById(indexTask);
         documentRepository.updateById(new KbDocument().setId(docId).setStatus(KbDocument.DocumentStatus.PROCESSING));
 
         try {
@@ -159,7 +163,11 @@ public class IndexService {
                     .setIndexedAt(LocalDateTime.now());
             documentRepository.updateById(kbDocument);
 
-            updateTaskStatus(taskId, IndexTask.TaskStatus.DONE);
+            indexTask = new IndexTask()
+                    .setId(taskId)
+                    .setStatus(IndexTask.TaskStatus.DONE)
+                    .setFinishedAt(LocalDateTime.now());
+            taskRepository.updateById(indexTask);
 
             log.info("[IndexService] 索引完成：docId={}，chunkResultList={}，tokens={}", docId, chunkResultList.size(), totalTokens);
         } catch (Exception e) {
@@ -180,12 +188,11 @@ public class IndexService {
                 .setFinishedAt(LocalDateTime.now());
         taskRepository.updateById(indexTask);
 
-        KbDocument kbDocument = documentRepository.findById(docId);
-        if (Objects.nonNull(kbDocument)) {
-            kbDocument.setStatus(KbDocument.DocumentStatus.FAILED)
-                    .setErrorMsg(errorMsg);
-            documentRepository.updateById(kbDocument);
-        }
+        KbDocument kbDocument = new KbDocument()
+                .setId(docId)
+                .setStatus(KbDocument.DocumentStatus.FAILED)
+                .setErrorMsg(errorMsg);
+        documentRepository.updateById(kbDocument);
     }
 
     private void retryIfPossible(Long taskId, Long docId) {
@@ -194,7 +201,7 @@ public class IndexService {
             throw new RuntimeException("任务不存在: " + taskId);
         }
 
-        if (indexTask.canRetry()) {
+        if (indexTask.getRetryCount() < indexTask.getMaxRetry() && Objects.equals(indexTask.getStatus(), IndexTask.TaskStatus.FAILED)) {
             indexTask.setRetryCount(indexTask.getRetryCount() + 1)
                     .setStatus(IndexTask.TaskStatus.PENDING);
             taskRepository.updateById(indexTask);
@@ -219,14 +226,4 @@ public class IndexService {
             Thread.currentThread().interrupt();
         }
     }
-
-    private void updateTaskStatus(Long taskId, IndexTask.TaskStatus taskStatus) {
-        IndexTask indexTask = new IndexTask()
-                .setId(taskId)
-                .setStatus(taskStatus)
-                .setStartedAt(Objects.equals(taskStatus, IndexTask.TaskStatus.RUNNING) ? LocalDateTime.now() : null)
-                .setFinishedAt(Objects.equals(taskStatus, IndexTask.TaskStatus.DONE) ? LocalDateTime.now() : null);
-        taskRepository.updateById(indexTask);
-    }
-
 }

@@ -80,11 +80,4 @@ public class IndexTask {
          */
         FAILED
     }
-
-    /**
-     * 判断当前任务是否可以重试
-     */
-    public boolean canRetry() {
-        return retryCount < maxRetry && status == TaskStatus.FAILED;
-    }
 }
