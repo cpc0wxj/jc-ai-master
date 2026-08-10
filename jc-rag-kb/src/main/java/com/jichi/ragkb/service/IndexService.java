@@ -2,6 +2,7 @@ package com.jichi.ragkb.service;
 
 import cn.hutool.core.collection.CollStreamUtil;
 import cn.hutool.core.collection.ListUtil;
+import com.google.common.collect.Lists;
 import com.jichi.ragkb.dto.ChunkResult;
 import com.jichi.ragkb.dto.ParseResult;
 import com.jichi.ragkb.entity.DocChunk;
@@ -19,7 +20,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -129,7 +129,7 @@ public class IndexService {
             chunkRepository.deleteByDocIdAndDocVersionLessThan(docId, kbDocument.getVersion());
 
             // 批量写入数据库
-            List<DocChunk> docChunkList = new ArrayList<>();
+            List<DocChunk> docChunkList = Lists.newArrayList();
             int totalTokens = 0;
             for (int i = 0; i < chunkResultList.size(); i++) {
                 ChunkResult chunkResult = chunkResultList.get(i);
@@ -175,15 +175,15 @@ public class IndexService {
             throw new RuntimeException("任务不存在: " + taskId);
         }
 
-        indexTask.setStatus(IndexTask.TaskStatus.FAILED);
-        indexTask.setErrorMsg(errorMsg);
-        indexTask.setFinishedAt(LocalDateTime.now());
+        indexTask.setStatus(IndexTask.TaskStatus.FAILED)
+                .setErrorMsg(errorMsg)
+                .setFinishedAt(LocalDateTime.now());
         taskRepository.updateById(indexTask);
 
         KbDocument kbDocument = documentRepository.findById(docId);
         if (Objects.nonNull(kbDocument)) {
-            kbDocument.setStatus(KbDocument.DocumentStatus.FAILED);
-            kbDocument.setErrorMsg(errorMsg);
+            kbDocument.setStatus(KbDocument.DocumentStatus.FAILED)
+                    .setErrorMsg(errorMsg);
             documentRepository.updateById(kbDocument);
         }
     }
