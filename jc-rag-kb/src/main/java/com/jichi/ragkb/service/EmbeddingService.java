@@ -92,7 +92,7 @@ public class EmbeddingService {
             }
         }
 
-        log.debug("EmbeddingService.embedBatch 总数={}，resultVectorMapSize={}，missedSize={}", textList.size(), resultVectorMap.size(), missedMap.size());
+        log.debug("EmbeddingService.embedBatch totalSize={},resultVectorMapSize={},missedSize={}", textList.size(), resultVectorMap.size(), missedMap.size());
 
         // 存在未命中的文本，调 API 获取向量并回写缓存
         if (MapUtils.isNotEmpty(missedMap)) {
@@ -119,7 +119,7 @@ public class EmbeddingService {
 
     /**
      * 调 Embedding API，按批次处理，避免单次请求过大
-     * 带重试机制：网络抖动时自动重试 5 次，指数退避（1s → 2s → 4s → 8s → 16s）
+     * 带重试机制：网络抖动时自动重试 3 次，指数退避（1s → 2s）
      *
      * @param texts 待向量化的文本列表
      * @return 与输入顺序对应的向量列表
@@ -128,7 +128,7 @@ public class EmbeddingService {
             HttpServerErrorException.class,        // 5xx 服务端错误(502/503/504)
             TimeoutException.class},               // 超时异常
             noRetryFor = HttpClientErrorException.class,   // 4xx 不重试(401/400/413), 重试结果一样纯浪费 Token
-            maxAttempts = 5,
+            maxAttempts = 3,
             backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<float[]> embedFromApi(Collection<String> texts) {
         // 收集所有批次的向量结果
@@ -157,7 +157,7 @@ public class EmbeddingService {
 
             log.info("EmbeddingService.embedFromApi batchNo={}/{},batchSize={},elapsed={}", i + 1, batchGroupList.size(), batchList.size(), elapsed);
         }
-        log.info("EmbeddingService.embedFromApi size={}，totalTokens={}", texts.size(), totalTokens.get());
+        log.info("EmbeddingService.embedFromApi size={},totalTokens={}", texts.size(), totalTokens.get());
 
         return resultList;
     }
@@ -171,7 +171,7 @@ public class EmbeddingService {
      */
     @Recover
     public List<float[]> embedFromApiFallback(Exception e, Collection<String> texts) {
-        log.error("[Embedding] 重试3次后仍失败，texts.size={}，error={}", texts.size(), e.getMessage());
+        log.error("[Embedding] 重试3次后仍失败,texts.size={},error={}", texts.size(), e.getMessage());
         throw new RuntimeException("Embedding API 调用失败，已重试3次：" + e.getMessage(), e);
     }
 }
