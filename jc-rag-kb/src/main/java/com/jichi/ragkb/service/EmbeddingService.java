@@ -58,10 +58,6 @@ public class EmbeddingService {
 
     /**
      * 批量向量化，带 Redis 缓存
-     * <li>遍历输入文本，逐条查 Redis 缓存</li>
-     * <li>缓存命中的直接反序列化复用，未命中的收集到待请求列表</li>
-     * <li>对未命中的文本批量调 Embedding API，结果回写缓存</li>
-     * <li>按原始输入顺序组装并返回完整向量列表</li>
      *
      * @param textList 待向量化的文本列表
      * @return 与输入顺序对应的向量列表，空输入返回空列表
@@ -166,17 +162,5 @@ public class EmbeddingService {
     public List<float[]> embedFromApiFallback(Exception e, Collection<String> texts) {
         log.error("[Embedding] 重试3次后仍失败，texts.size={}，error={}", texts.size(), e.getMessage());
         throw new RuntimeException("Embedding API 调用失败，已重试3次：" + e.getMessage(), e);
-    }
-
-    /**
-     * 单条向量化（查询时使用）
-     * 复用 embedBatch 的缓存逻辑，单条查询也能命中缓存
-     *
-     * @param text 待向量化的文本
-     * @return 向量数组，失败时返回空数组
-     */
-    public float[] embed(String text) {
-        List<float[]> result = embedBatch(List.of(text));
-        return CollectionUtils.isNotEmpty(result) ? result.getFirst() : new float[0];
     }
 }
