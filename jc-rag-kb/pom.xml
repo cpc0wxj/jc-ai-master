@@ -123,6 +123,12 @@
             <version>1.39.0</version>
         </dependency>
 
+        <!-- ========== MyBatis-Plus（与 JPA 共存，部分表使用 MyBatis-Plus） ========== -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>3.5.17</version>
+        </dependency>
         <!-- ========== 工具库 ========== -->
         <dependency>
             <groupId>org.projectlombok</groupId>

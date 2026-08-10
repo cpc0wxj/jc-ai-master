@@ -52,11 +52,11 @@ public class DataInitializer implements ApplicationRunner {
                 .setFileSize((long) content.length)
                 .setMinioPath(minioPath)
                 .setUploadedBy(uploadedBy);
-        kbDocument = documentRepository.save(kbDocument);
+        documentRepository.save(kbDocument);
 
         String text = new String(content, StandardCharsets.UTF_8);
         indexService.submitIndexTask(kbDocument.getId(), text);
 
-        log.info("[DataInit] 文档已提交索引：id={}, fileName={}", kbDocument.getId(), fileName);
+        log.info("[DataInit] 文档已提交索引：id={}, fileName={}", kbId, fileName);
     }
 }
