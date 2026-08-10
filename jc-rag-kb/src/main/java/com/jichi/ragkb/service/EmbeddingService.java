@@ -1,6 +1,7 @@
 package com.jichi.ragkb.service;
 
 import cn.hutool.core.collection.CollStreamUtil;
+import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.crypto.digest.DigestUtil;
@@ -124,24 +125,23 @@ public class EmbeddingService {
      * 调 Embedding API，按批次处理，避免单次请求过大
      * 带重试机制：网络抖动时自动重试 5 次，指数退避（1s → 2s → 4s → 8s → 16s）
      *
-     * @param textList 待向量化的文本列表
+     * @param texts 待向量化的文本列表
      * @return 与输入顺序对应的向量列表
      */
     @Retryable(retryFor = Exception.class, maxAttempts = 5, backoff = @Backoff(delay = 1000, multiplier = 2))
-    public List<float[]> embedFromApi(List<String> textList) {
-        List<float[]> resultList = Collections.emptyList();
+    public List<float[]> embedFromApi(Collection<String> texts) {
+        // 收集所有批次的向量结果
+        List<float[]> resultList = Lists.newArrayList();
         // 累计 Token 消耗，用于成本监控
         AtomicInteger totalTokens = new AtomicInteger(0);
 
-        // 按 BATCH_SIZE 分批提交，避免单次请求过大导致超限或超时
-        for (int start = 0; start < textList.size(); start += BATCH_SIZE) {
-            // 计算当前批次的结束位置，不超过文本总长度
-            int end = Math.min(start + BATCH_SIZE, textList.size());
-            List<String> batch = textList.subList(start, end);
+        List<List<String>> batchGroupList = CollectionUtil.split(texts, BATCH_SIZE);
+        for (int i = 0; i < batchGroupList.size(); i++) {
+            List<String> batchList = batchGroupList.get(i);
 
             // 记录批次耗时，用于性能监控
             long batchStart = System.currentTimeMillis();
-            EmbeddingResponse embeddingResponse = embeddingModel.call(new EmbeddingRequest(batch, null));
+            EmbeddingResponse embeddingResponse = embeddingModel.call(new EmbeddingRequest(batchList, null));
             long elapsed = System.currentTimeMillis() - batchStart;
 
             // 统计 Token 消耗（用于成本监控）
@@ -152,12 +152,11 @@ public class EmbeddingService {
             List<Embedding> embeddingList = embeddingResponse.getResults().stream()
                     .sorted(Comparator.comparingInt(Embedding::getIndex))
                     .toList();
-            resultList = CollStreamUtil.toList(embeddingList, Embedding::getOutput);
+            resultList.addAll(CollStreamUtil.toList(embeddingList, Embedding::getOutput));
 
-            log.debug("[Embedding] 批次{}/{}，size={}，耗时={}ms", start / BATCH_SIZE + 1, (textList.size() + BATCH_SIZE - 1) / BATCH_SIZE, batch.size(), elapsed);
+            log.info("EmbeddingService.embedFromApi batchNo={}/{},batchSize={},elapsed={}", i + 1, batchGroupList.size(), batchList.size(), elapsed);
         }
-
-        log.info("[Embedding] API调用完成，共{}条，消耗Token={}", textList.size(), totalTokens.get());
+        log.info("EmbeddingService.embedFromApi size={}，totalTokens={}", texts.size(), totalTokens.get());
 
         return resultList;
     }
@@ -170,7 +169,7 @@ public class EmbeddingService {
      * @param texts 触发失败的文本列表
      */
     @Recover
-    public List<float[]> embedFromApiFallback(Exception e, List<String> texts) {
+    public List<float[]> embedFromApiFallback(Exception e, Collection<String> texts) {
         log.error("[Embedding] 重试3次后仍失败，texts.size={}，error={}", texts.size(), e.getMessage());
         throw new RuntimeException("Embedding API 调用失败，已重试3次：" + e.getMessage(), e);
     }
