@@ -16,13 +16,18 @@ import org.springframework.ai.embedding.Embedding;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.util.*;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -91,7 +96,8 @@ public class EmbeddingService {
 
         // 存在未命中的文本，调 API 获取向量并回写缓存
         if (MapUtils.isNotEmpty(missedMap)) {
-            List<float[]> newVectorList = embedFromApi(missedMap.values());
+            // 通过 AopContext.currentProxy() 获取代理对象调用, 确保 @Retryable / @Recover 生效
+            List<float[]> newVectorList = ((EmbeddingService) AopContext.currentProxy()).embedFromApi(missedMap.values());
 
             // 将 API 返回的向量按原始下标回填，并写入缓存
             int idx = 0;
@@ -118,7 +124,12 @@ public class EmbeddingService {
      * @param texts 待向量化的文本列表
      * @return 与输入顺序对应的向量列表
      */
-    @Retryable(retryFor = Exception.class, maxAttempts = 5, backoff = @Backoff(delay = 1000, multiplier = 2))
+    @Retryable(retryFor = {ResourceAccessException.class,        // 网络 IO 异常(连接超时/读超时/Connection reset)
+            HttpServerErrorException.class,        // 5xx 服务端错误(502/503/504)
+            TimeoutException.class},               // 超时异常
+            noRetryFor = HttpClientErrorException.class,   // 4xx 不重试(401/400/413), 重试结果一样纯浪费 Token
+            maxAttempts = 5,
+            backoff = @Backoff(delay = 1000, multiplier = 2))
     public List<float[]> embedFromApi(Collection<String> texts) {
         // 收集所有批次的向量结果
         List<float[]> resultList = Lists.newArrayList();
