@@ -107,7 +107,7 @@ public class IndexService {
      */
     private void doIndex(Long taskId, Long docId, KbDocument kbDocument, ParseResult parseResult) {
         updateTaskStatus(taskId, IndexTask.TaskStatus.RUNNING);
-        updateDocStatus(docId, KbDocument.DocumentStatus.PROCESSING);
+        documentRepository.updateById(new KbDocument().setId(docId).setStatus(KbDocument.DocumentStatus.PROCESSING));
 
         try {
             if (!Objects.equals(parseResult.getSuccess(), Boolean.TRUE)) {
@@ -221,28 +221,12 @@ public class IndexService {
     }
 
     private void updateTaskStatus(Long taskId, IndexTask.TaskStatus taskStatus) {
-        IndexTask indexTask = taskRepository.findById(taskId);
-        if (Objects.isNull(indexTask)) {
-            return;
-        }
-
-        indexTask.setStatus(taskStatus);
-        if (Objects.equals(taskStatus, IndexTask.TaskStatus.RUNNING)) {
-            indexTask.setStartedAt(LocalDateTime.now());
-        }
-        if (Objects.equals(taskStatus, IndexTask.TaskStatus.DONE)) {
-            indexTask.setFinishedAt(LocalDateTime.now());
-        }
+        IndexTask indexTask = new IndexTask()
+                .setId(taskId)
+                .setStatus(taskStatus)
+                .setStartedAt(Objects.equals(taskStatus, IndexTask.TaskStatus.RUNNING) ? LocalDateTime.now() : null)
+                .setFinishedAt(Objects.equals(taskStatus, IndexTask.TaskStatus.DONE) ? LocalDateTime.now() : null);
         taskRepository.updateById(indexTask);
     }
 
-    private void updateDocStatus(Long docId, KbDocument.DocumentStatus documentStatus) {
-        KbDocument kbDocument = documentRepository.findById(docId);
-        if (Objects.isNull(kbDocument)) {
-            return;
-        }
-
-        kbDocument.setStatus(documentStatus);
-        documentRepository.updateById(kbDocument);
-    }
 }
