@@ -27,11 +27,10 @@ import java.util.Set;
  * 知识库管理服务
  * 管理知识库的创建、查询、文档上传/删除/重建索引等操作
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class KnowledgeBaseService {
-
     private final KnowledgeBaseRepository kbRepository;
     private final KbPermissionRepository permissionRepository;
     private final KbDocumentRepository documentRepository;

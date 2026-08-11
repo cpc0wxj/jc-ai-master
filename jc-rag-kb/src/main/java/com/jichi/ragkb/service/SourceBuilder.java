@@ -21,11 +21,10 @@ import java.util.stream.Collectors;
  * 来源构建器
  * 从模型回答中解析引用标注，关联到文档信息，构建来源列表
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class SourceBuilder {
-
     private final CitationParser citationParser;
     private final KbDocumentRepository documentRepository;
     private final ObjectMapper objectMapper;
@@ -37,10 +36,7 @@ public class SourceBuilder {
      * @param chunks 传入模型的 chunk 列表（顺序对应 [参考N] 编号）
      * @return 被引用的来源列表（前端展示用）
      */
-    public List<RagResponse.Source> buildSources(
-            String answer,
-            List<HybridRetrieverService.ScoredChunk> chunks) {
-
+    public List<RagResponse.Source> buildSources(String answer, List<HybridRetrieverService.ScoredChunk> chunks) {
         // 解析被引用的 chunk 索引（1-based）
         Set<Integer> citedIndices = citationParser.extractCitedIndices(answer);
 

@@ -21,7 +21,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @Slf4j
 public class QueryCacheService {
-
     private final RedisTemplate<String, Object> redisTemplate;
 
     private static final String CACHE_PREFIX = "rag:query:";

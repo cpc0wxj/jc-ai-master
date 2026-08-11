@@ -14,20 +14,17 @@ import java.util.stream.Collectors;
  * 过滤掉低分 chunk，避免不相关内容影响生成质量
  * 由 FullRagPipeline 注入使用，不单独暴露 HTTP
  */
-@Component
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class ConfidenceFilter {
-
     private final RagRetrievalProperties ragRetrievalProperties;
 
     /**
      * 过滤低置信度的 chunk
      * 如果过滤后为空，保留分数最高的 1 个（不能完全没有内容）
      */
-    public List<HybridRetrieverService.ScoredChunk> filter(
-            List<HybridRetrieverService.ScoredChunk> chunks) {
-
+    public List<HybridRetrieverService.ScoredChunk> filter(List<HybridRetrieverService.ScoredChunk> chunks) {
         double minScore = ragRetrievalProperties.getMinScore();
 
         List<HybridRetrieverService.ScoredChunk> filtered = chunks.stream()

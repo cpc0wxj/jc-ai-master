@@ -20,8 +20,8 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @Slf4j
 public class FeedbackService {
-
     private final AnswerFeedbackRepository feedbackRepository;
+
     private final ChatMessageRepository messageRepository;
 
     /**

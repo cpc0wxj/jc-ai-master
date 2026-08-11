@@ -22,11 +22,10 @@ import java.util.stream.Collectors;
  * RAG 评估服务
  * 运行自动化评估流水线，计算 Hit Rate、MRR、Faithfulness 等指标
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class EvalService {
-
     private final EvalDatasetRepository datasetRepository;
     private final EvalResultRepository resultRepository;
     private final EnhancedRetrieverService retriever;

@@ -21,11 +21,10 @@ import java.util.Objects;
  * 流式 RAG 服务
  * 通过 SSE 推送检索和生成结果，支持多轮对话上下文和查询缓存
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class StreamingRagService {
-
     private final EnhancedRetrieverService enhancedRetriever;
     private final RerankerService rerankerService;
     private final ConfidenceFilter confidenceFilter;

@@ -8,17 +8,16 @@ import org.springframework.stereotype.Service;
 /**
  * 幻觉检测器
  * 校验模型的回答是否有事实依据（来自 context）
- *
+ * <p>
  * 使用 LLM 自评估（Self-Evaluation）：
  * 让另一个 LLM 调用判断答案是否忠实于给定的参考内容
- *
+ * <p>
  * 注意：这会增加一次额外的 LLM 调用，建议只在重要场景或抽样时使用
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class HallucinationChecker {
-
     private final ChatClient chatClient;
     private final TokenMetrics tokenMetrics;
     private final ContextTrimmerService contextTrimmer;
@@ -26,11 +25,9 @@ public class HallucinationChecker {
     /**
      * 幻觉检测结果
      */
-    public record FaithfulnessResult(
-            boolean isFaithful,
-            double score,
-            String reason
-    ) {
+    public record FaithfulnessResult(boolean isFaithful,
+                                     double score,
+                                     String reason) {
     }
 
     /**
@@ -44,21 +41,14 @@ public class HallucinationChecker {
     public FaithfulnessResult check(String question, String answer, String context) {
         String prompt = """
                 请判断以下【答案】是否忠实于【参考内容】（即答案中的事实是否都能在参考内容中找到依据）。
-
                 【问题】：%s
-
-                【参考内容】：
-                %s
-
-                【答案】：
-                %s
-
+                【参考内容】：%s
+                【答案】：%s
                 请回答以下内容（格式严格按照示例）：
                 忠实性分数：[0-10的整数，10=完全忠实，0=完全不忠实]
                 是否忠实：[是/否]
                 理由：[一句话解释]
                 """.formatted(question, context, answer);
-
         try {
             String response = chatClient.prompt()
                     .user(prompt)

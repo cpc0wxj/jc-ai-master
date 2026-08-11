@@ -18,8 +18,8 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class PermissionService {
-
     private final KbPermissionRepository permissionRepository;
+
     private final KnowledgeBaseRepository kbRepository;
 
     /**

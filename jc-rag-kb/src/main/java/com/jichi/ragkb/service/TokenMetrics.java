@@ -24,11 +24,10 @@ import java.util.Objects;
  * Redis Key 格式：rag:token-stats:{userId}
  * Hash Fields：embeddingTokens / contextTokens / generationTokens
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class TokenMetrics {
-
     private final MeterRegistry meterRegistry;
     private final StringRedisTemplate stringRedisTemplate;
 

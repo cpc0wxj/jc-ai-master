@@ -16,14 +16,13 @@ import java.util.stream.Collectors;
  * 基础 RAG 查询服务（V1）
  * 向量检索 + 生成回答，最简单的 RAG 实现
  */
-@Service
 @Slf4j
+@Service
 @RequiredArgsConstructor
 public class RagQueryService {
-
+    private final ChatClient chatClient;
     private final EmbeddingService embeddingService;
     private final DocChunkRepository chunkRepository;
-    private final ChatClient chatClient;
     private final RagRetrievalProperties ragRetrievalProperties;
 
     /**
@@ -35,11 +34,9 @@ public class RagQueryService {
      */
     public String query(String question, List<Long> kbIds) {
         int vectorTopK = ragRetrievalProperties.getVectorTopK();
-
-        // Step 1：向量化问题
+        // 向量化问题
         float[] queryEmbedding = embeddingService.embed(question);
-
-        // Step 2：向量检索（从多个知识库）
+        // 向量检索（从多个知识库）
         List<DocChunk> retrievedChunks = retrieveChunks(queryEmbedding, kbIds, vectorTopK);
 
         if (retrievedChunks.isEmpty()) {

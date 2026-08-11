@@ -14,11 +14,10 @@ import java.util.Objects;
  * 完整 RAG 管线
  * 增强检索 → Reranker 精排 → 置信度过滤 → 上下文裁剪 → 生成回答 → 引用解析 → 幻觉检测
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class FullRagPipeline {
-
     private final EnhancedRetrieverService enhancedRetriever;
     private final RerankerService rerankerService;
     private final ConfidenceFilter confidenceFilter;
@@ -32,16 +31,14 @@ public class FullRagPipeline {
         long pipelineStart = System.currentTimeMillis();
 
         // Step 1：增强检索（混合检索 + HyDE）
-        List<HybridRetrieverService.ScoredChunk> candidates =
-                enhancedRetriever.retrieveWithHyde(question, kbIds, 20);
+        List<HybridRetrieverService.ScoredChunk> candidates = enhancedRetriever.retrieveWithHyde(question, kbIds, 20);
 
         if (candidates.isEmpty()) {
             return RagResponse.notFound();
         }
 
         // Step 2：Reranker 精排
-        List<HybridRetrieverService.ScoredChunk> reranked =
-                rerankerService.rerank(question, candidates, rerankerProperties.getTopN());
+        List<HybridRetrieverService.ScoredChunk> reranked = rerankerService.rerank(question, candidates, rerankerProperties.getTopN());
 
         // Step 3：置信度过滤
         List<HybridRetrieverService.ScoredChunk> filtered = confidenceFilter.filter(reranked);
@@ -64,14 +61,12 @@ public class FullRagPipeline {
         if (System.currentTimeMillis() % 5 == 0) {
             var faithResult = hallucinationChecker.check(question, answer, context);
             if (!faithResult.isFaithful()) {
-                log.warn("FullRagPipeline.query hallucinationDetected,score={},reason={}",
-                        faithResult.score(), faithResult.reason());
+                log.warn("FullRagPipeline.query hallucinationDetected,score={},reason={}", faithResult.score(), faithResult.reason());
             }
         }
 
         long elapsed = System.currentTimeMillis() - pipelineStart;
-        log.info("FullRagPipeline.query question={},elapsed={},sources={}",
-                question.substring(0, Math.min(30, question.length())), elapsed, sources.size());
+        log.info("FullRagPipeline.query question={},elapsed={},sources={}", question.substring(0, Math.min(30, question.length())), elapsed, sources.size());
 
         return new RagResponse()
                 .setAnswer(answer)

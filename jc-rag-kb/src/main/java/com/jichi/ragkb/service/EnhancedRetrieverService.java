@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class EnhancedRetrieverService {
-
     private final HybridRetrieverService hybridRetriever;
     private final QueryRewriterService queryRewriter;
     private final EmbeddingService embeddingService;

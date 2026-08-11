@@ -18,11 +18,10 @@ import java.util.Objects;
  * 2. 事务提交后再触发异步索引——保证异步线程从 DB 能读到最新数据
  * 3. 最后清理旧的 MinIO 文件——异步任务读的是新 minioPath，与旧文件无关
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class DocumentUpdateService {
-
     private final DocumentTxService txService;
     private final KbDocumentRepository documentRepository;
     private final MinioStorageService minioService;
@@ -35,11 +34,11 @@ public class DocumentUpdateService {
         String oldMinioPath = txService.updateDocumentRecord(docId, newFile);
         indexService.submitIndexTask(docId);
         minioService.delete(oldMinioPath);
-        KbDocument doc = documentRepository.findById(docId);
-        if (Objects.isNull(doc)) {
+        KbDocument kbDocument = documentRepository.findById(docId);
+        if (Objects.isNull(kbDocument)) {
             throw new RuntimeException("文档不存在：" + docId);
         }
-        return doc;
+        return kbDocument;
     }
 
     /**

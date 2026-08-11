@@ -19,12 +19,12 @@ import java.util.UUID;
  * MinIO 文件存储服务
  * 提供文件上传、下载和删除功能
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class MinioStorageService {
-
     private final MinioClient minioClient;
+
     private final MinioProperties minioProperties;
 
     /**
@@ -32,8 +32,7 @@ public class MinioStorageService {
      * 路径格式：kb/{kbId}/{uuid}-{originalFileName}
      */
     public String upload(Long kbId, MultipartFile file) {
-        String objectPath = String.format("kb/%d/%s-%s",
-                kbId, UUID.randomUUID().toString().substring(0, 8), file.getOriginalFilename());
+        String objectPath = String.format("kb/%d/%s-%s", kbId, UUID.randomUUID().toString().substring(0, 8), file.getOriginalFilename());
         try {
             ensureBucketExists();
             minioClient.putObject(PutObjectArgs.builder()

@@ -21,11 +21,10 @@ import java.util.UUID;
  * 对话会话服务
  * 管理多轮对话的会话创建、消息保存和历史查询
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ChatSessionService {
-
     private final ChatSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
     private final ObjectMapper objectMapper;

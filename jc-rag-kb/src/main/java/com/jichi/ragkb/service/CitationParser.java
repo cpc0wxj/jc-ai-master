@@ -11,13 +11,11 @@ import java.util.regex.Pattern;
 /**
  * 解析模型回答中的引用标注，关联到具体 chunk
  */
-@Component
 @Slf4j
+@Component
 public class CitationParser {
-
     // 匹配 (来源：[参考1][参考2]) 或 [参考1] 等格式
-    private static final Pattern CITATION_PATTERN =
-            Pattern.compile("(?:（来源：|\\[)参考(\\d+)(?:）|\\])");
+    private static final Pattern CITATION_PATTERN = Pattern.compile("(?:（来源：|\\[)参考(\\d+)(?:）|\\])");
 
     /**
      * 从回答中提取引用，返回被引用的 chunk 索引（1-based）

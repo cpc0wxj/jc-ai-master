@@ -15,11 +15,10 @@ import java.util.List;
  * 查询改写服务
  * 提供 HyDE（假设性回答生成）和多路查询扩展功能
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class QueryRewriterService {
-
     private final ChatClient chatClient;
     private final TokenMetrics tokenMetrics;
     private final ContextTrimmerService contextTrimmer;
@@ -36,10 +35,8 @@ public class QueryRewriterService {
                 请根据以下问题，生成一个简洁的假设性回答（2-4句话）。
                 这个回答不需要准确，只需要在语义上覆盖可能的答案内容。
                 直接给出答案内容，不要任何前缀说明。
-
                 问题：%s
                 """.formatted(question);
-
         try {
             String hypothetical = chatClient.prompt()
                     .user(prompt)

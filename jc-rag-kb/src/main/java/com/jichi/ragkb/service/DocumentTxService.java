@@ -15,12 +15,12 @@ import java.util.Objects;
  * 单独拆出来是因为 Spring @Transactional 基于 AOP 代理，同一 Bean 内方法互调会绕过代理导致事务失效
  * 把事务方法放到独立 Bean，让编排方法跨 Bean 调用——代理生效，事务才真启动并提交
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class DocumentTxService {
-
     private final KbDocumentRepository documentRepository;
+
     private final MinioStorageService minioService;
 
     /**
@@ -29,30 +29,29 @@ public class DocumentTxService {
      */
     @Transactional
     public String updateDocumentRecord(Long docId, MultipartFile newFile) {
-        KbDocument doc = documentRepository.findById(docId);
-        if (Objects.isNull(doc)) {
+        KbDocument kbDocument = documentRepository.findById(docId);
+        if (Objects.isNull(kbDocument)) {
             throw new RuntimeException("文档不存在：" + docId);
         }
-        if (Boolean.TRUE.equals(doc.getIsDeleted())) {
+        if (Boolean.TRUE.equals(kbDocument.getIsDeleted())) {
             throw new RuntimeException("文档已删除，无法替换：" + docId);
         }
 
-        String oldMinioPath = doc.getMinioPath();
-        String newMinioPath = minioService.upload(doc.getKbId(), newFile);
+        String oldMinioPath = kbDocument.getMinioPath();
+        String newMinioPath = minioService.upload(kbDocument.getKbId(), newFile);
 
-        doc.setFileName(newFile.getOriginalFilename())
+        kbDocument.setFileName(newFile.getOriginalFilename())
                 .setFileSize(newFile.getSize())
                 .setMinioPath(newMinioPath)
-                .setVersion(doc.getVersion() + 1)
+                .setVersion(kbDocument.getVersion() + 1)
                 .setStatus(KbDocument.DocumentStatus.PENDING)
                 .setErrorMsg(null)
                 .setChunkCount(null)
                 .setTokenCount(null)
                 .setIndexedAt(null);
-        documentRepository.updateById(doc);
+        documentRepository.updateById(kbDocument);
 
-        log.info("DocumentTxService.updateDocumentRecord docId={},newVersion={},newFile={}",
-                docId, doc.getVersion(), newFile.getOriginalFilename());
+        log.info("DocumentTxService.updateDocumentRecord docId={},newVersion={},newFile={}", docId, kbDocument.getVersion(), newFile.getOriginalFilename());
         return oldMinioPath;
     }
 

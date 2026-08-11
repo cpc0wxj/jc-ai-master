@@ -17,16 +17,14 @@ import java.util.stream.Collectors;
  *
  * 不单独暴露 HTTP，由 HybridRetrieverService 注入使用
  */
-@Component
 @Slf4j
+@Component
 public class TsQueryBuilder {
-
     // 停用词（这些词在全文检索中无意义）
     private static final List<String> STOP_WORDS = List.of(
             "的", "了", "是", "在", "有", "和", "与", "或", "这", "那",
             "什么", "怎么", "如何", "为什么", "哪些", "怎样", "请问",
-            "a", "an", "the", "is", "are", "what", "how"
-    );
+            "a", "an", "the", "is", "are", "what", "how");
 
     /**
      * 将问题转为 tsquery 格式

@@ -21,13 +21,12 @@ import java.util.stream.Collectors;
  * Reranker 精排服务
  * 调用外部 Reranker API 对候选 chunk 进行精排，超时或失败时自动降级为 RRF 分数排序
  */
-@Service
 @Slf4j
+@Service
 @RequiredArgsConstructor
 public class RerankerService {
-
-    private final WebClient.Builder webClientBuilder;
     private final TokenMetrics tokenMetrics;
+    private final WebClient.Builder webClientBuilder;
     private final RerankerProperties rerankerProperties;
 
     /**

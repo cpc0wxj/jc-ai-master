@@ -24,11 +24,10 @@ import java.util.stream.Collectors;
  * 混合检索服务
  * 向量检索 + 全文检索，RRF 融合排序
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class HybridRetrieverService {
-
     private final EmbeddingService embeddingService;
     private final DocChunkRepository chunkRepository;
     private final TsQueryBuilder tsQueryBuilder;

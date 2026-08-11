@@ -27,7 +27,6 @@ import java.util.Objects;
 @Slf4j
 @RequiredArgsConstructor
 public class ContextTrimmerService {
-
     private final RagContextProperties ragContextProperties;
     private final TokenMetrics tokenMetrics;
     private Encoding tokenizer;
@@ -46,9 +45,7 @@ public class ContextTrimmerService {
      * @param candidates 已排序的 chunk 列表（相关性高的在前）
      * @return 裁剪后的 chunk 列表（顺序不变）
      */
-    public List<HybridRetrieverService.ScoredChunk> trim(
-            List<HybridRetrieverService.ScoredChunk> candidates) {
-
+    public List<HybridRetrieverService.ScoredChunk> trim(List<HybridRetrieverService.ScoredChunk> candidates) {
         int maxContextTokens = ragContextProperties.getMaxTokens();
         List<HybridRetrieverService.ScoredChunk> selected = Lists.newArrayList();
         int usedTokens = 0;
@@ -103,6 +100,7 @@ public class ContextTrimmerService {
         if (Objects.isNull(text) || StringUtils.isBlank(text)) {
             return 0;
         }
+
         return tokenizer.encode(text).size();
     }
 

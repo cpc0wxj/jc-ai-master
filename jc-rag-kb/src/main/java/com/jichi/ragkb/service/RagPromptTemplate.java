@@ -5,7 +5,6 @@ package com.jichi.ragkb.service;
  * 要求模型在回答中标注引用来源，防止幻觉
  */
 public class RagPromptTemplate {
-
     private RagPromptTemplate() {
     }
 
@@ -19,12 +18,10 @@ public class RagPromptTemplate {
     public static String buildSystemPrompt(String context, int chunkCount) {
         return """
                 你是企业内部知识库的智能助手。
-
                 【参考内容】（共 %d 条，编号 [参考1] 到 [参考%d]）：
                 ---
                 %s
                 ---
-
                 【回答规则】：
                 1. 只基于上面的参考内容回答，不使用自身知识进行推测或补充
                 2. 回答中每条信息后面标注来源，格式：（来源：[参考N]）

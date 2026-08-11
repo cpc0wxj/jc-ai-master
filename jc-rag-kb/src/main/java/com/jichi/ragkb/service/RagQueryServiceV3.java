@@ -14,17 +14,15 @@ import java.util.stream.Collectors;
  * RAG 查询服务（V3）
  * 使用 HyDE 增强检索（假设性回答 + 多路向量检索 + RRF 融合）
  */
-@Service
 @Slf4j
+@Service
 @RequiredArgsConstructor
 public class RagQueryServiceV3 {
-
-    private final EnhancedRetrieverService enhancedRetriever;
     private final ChatClient chatClient;
+    private final EnhancedRetrieverService enhancedRetriever;
 
     public String query(String question, List<Long> kbIds) {
-        List<HybridRetrieverService.ScoredChunk> scoredChunks =
-                enhancedRetriever.retrieveWithHyde(question, kbIds, 5);
+        List<HybridRetrieverService.ScoredChunk> scoredChunks = enhancedRetriever.retrieveWithHyde(question, kbIds, 5);
 
         if (scoredChunks.isEmpty()) {
             return "在您选择的知识库中未找到与该问题相关的内容。";

@@ -15,11 +15,10 @@ import java.util.stream.Collectors;
  * 升级版 RAG 查询服务（V2）
  * 使用混合检索（向量 + 全文）代替纯向量检索
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class RagQueryServiceV2 {
-
     private final HybridRetrieverService hybridRetriever;
     private final ChatClient chatClient;
     private final RagRetrievalProperties ragRetrievalProperties;
