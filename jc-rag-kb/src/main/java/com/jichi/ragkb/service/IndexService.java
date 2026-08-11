@@ -35,10 +35,10 @@ import java.util.concurrent.TimeUnit;
 @Service
 @RequiredArgsConstructor
 public class IndexService {
-    private final KbDocumentRepository documentRepository;
-    private final DocChunkRepository chunkRepository;
-    private final IndexTaskRepository taskRepository;
-    private final DocumentParseManager loaderService;
+    private final KbDocumentRepository kbDocumentRepository;
+    private final DocChunkRepository docChunkRepository;
+    private final IndexTaskRepository indexTaskRepository;
+    private final DocumentParseManager documentParseManager;
     private final ChunkSplitManager chunkSplitManager;
     private final EmbeddingService embeddingService;
     private final MinioStorageService minioStorageService;
@@ -72,7 +72,7 @@ public class IndexService {
         IndexTask indexTask = new IndexTask()
                 .setDocId(docId)
                 .setTaskType("INDEX_FROM_TEXT");   // ★ 区分入口——scheduleRetry 据此跳过文本任务
-        taskRepository.save(indexTask);
+        indexTaskRepository.save(indexTask);
 
         // 捕获当前用户上下文，传递给异步线程（ThreadLocal 不能跨线程）
         ((IndexService) AopContext.currentProxy()).executeWithText(indexTask.getId(), docId, textContent, UserContext.getUserId(), UserContext.getDepartmentId(), UserContext.getRole());
@@ -85,7 +85,7 @@ public class IndexService {
         IndexTask indexTask = new IndexTask()
                 .setDocId(docId)
                 .setTaskType("INDEX_FROM_MINIO");  // ★ 区分入口——scheduleRetry 才能正确地走 MinIO 路径
-        taskRepository.save(indexTask);
+        indexTaskRepository.save(indexTask);
 
         ((IndexService) AopContext.currentProxy()).executeFromMinio(indexTask.getId(), docId, UserContext.getUserId(), UserContext.getDepartmentId(), UserContext.getRole());
     }
@@ -101,7 +101,7 @@ public class IndexService {
         try {
             KbDocument kbDocument;
             try {
-                kbDocument = documentRepository.findById(docId);
+                kbDocument = kbDocumentRepository.findById(docId);
                 if (Objects.isNull(kbDocument)) {
                     throw new RuntimeException("文档不存在：docId=" + docId);
                 }
@@ -138,7 +138,7 @@ public class IndexService {
             KbDocument kbDocument;
             // 取文档元数据——失败说明 docId 已被删，不重试
             try {
-                kbDocument = documentRepository.findById(docId);
+                kbDocument = kbDocumentRepository.findById(docId);
                 if (Objects.isNull(kbDocument)) {
                     throw new RuntimeException("文档不存在：docId=" + docId);
                 }
@@ -159,7 +159,7 @@ public class IndexService {
 
             // 解析 + 索引——失败可能是文件格式坏，也可能是 Embedding/DB 抖动，先重试
             try {
-                ParseResult parseResult = loaderService.load(kbDocument.getFileName(), new ByteArrayInputStream(fileBytes));
+                ParseResult parseResult = documentParseManager.load(kbDocument.getFileName(), new ByteArrayInputStream(fileBytes));
                 doIndex(taskId, docId, kbDocument, parseResult);
                 // doIndex 内部自带 try-catch，失败时已 markFailed + retry，这里 catch 兜底极端情况
             } catch (Exception e) {
@@ -185,8 +185,8 @@ public class IndexService {
                 .setId(taskId)
                 .setStatus(IndexTask.TaskStatus.RUNNING)
                 .setStartedAt(LocalDateTime.now());
-        taskRepository.updateById(indexTask);
-        documentRepository.updateById(new KbDocument().setId(docId).setStatus(KbDocument.DocumentStatus.PROCESSING));
+        indexTaskRepository.updateById(indexTask);
+        kbDocumentRepository.updateById(new KbDocument().setId(docId).setStatus(KbDocument.DocumentStatus.PROCESSING));
 
         try {
             if (!Objects.equals(parseResult.getSuccess(), Boolean.TRUE)) {
@@ -208,7 +208,7 @@ public class IndexService {
             int newVersion = (kbDocument.getVersion() == null ? 1 : kbDocument.getVersion() + 1);
             kbDocument.setVersion(newVersion);
             kbDocument.setStatus(KbDocument.DocumentStatus.PROCESSING);  // ★ 保持 PROCESSING，不被覆盖
-            documentRepository.updateById(kbDocument);
+            kbDocumentRepository.updateById(kbDocument);
 
             // 批量写入新版本数据
             List<DocChunk> docChunkList = Lists.newArrayList();
@@ -230,27 +230,27 @@ public class IndexService {
             }
 
             for (List<DocChunk> batchList : ListUtil.split(docChunkList, 50)) {
-                chunkRepository.saveBatch(batchList);
+                docChunkRepository.saveBatch(batchList);
                 log.info("IndexService.batchInsertChunks batchSize={}", batchList.size());
             }
 
             // 新数据写入完成后，才删除旧版本——真正的"先写后删"
             //   即使这一步挂了，旧版本 chunk 也只是没删干净，下次重建会再清，
             //   不会出现"旧的没了、新的没全"的窗口。
-            chunkRepository.deleteByDocIdAndDocVersionLessThan(docId, newVersion);
+            docChunkRepository.deleteByDocIdAndDocVersionLessThan(docId, newVersion);
 
             // 第六步：更新文档状态
             kbDocument.setStatus(KbDocument.DocumentStatus.DONE)
                     .setChunkCount(chunkResultList.size())
                     .setTokenCount(totalTokens)
                     .setIndexedAt(LocalDateTime.now());
-            documentRepository.updateById(kbDocument);
+            kbDocumentRepository.updateById(kbDocument);
 
             indexTask = new IndexTask()
                     .setId(taskId)
                     .setStatus(IndexTask.TaskStatus.DONE)
                     .setFinishedAt(LocalDateTime.now());
-            taskRepository.updateById(indexTask);
+            indexTaskRepository.updateById(indexTask);
 
             log.info("IndexService.doIndex docId={},version={},chunkResultListSize={},totalTokens={}", docId, newVersion, chunkResultList.size(), totalTokens);
         } catch (Exception e) {
@@ -261,7 +261,7 @@ public class IndexService {
     }
 
     private void markFailed(Long taskId, Long docId, String errorMsg) {
-        IndexTask indexTask = taskRepository.findById(taskId);
+        IndexTask indexTask = indexTaskRepository.findById(taskId);
         if (Objects.isNull(indexTask)) {
             throw new RuntimeException("任务不存在: " + taskId);
         }
@@ -269,16 +269,16 @@ public class IndexService {
         indexTask.setStatus(IndexTask.TaskStatus.FAILED)
                 .setErrorMsg(errorMsg)
                 .setFinishedAt(LocalDateTime.now());
-        taskRepository.updateById(indexTask);
+        indexTaskRepository.updateById(indexTask);
 
-        documentRepository.updateById(new KbDocument()
+        kbDocumentRepository.updateById(new KbDocument()
                 .setId(docId)
                 .setStatus(KbDocument.DocumentStatus.FAILED)
                 .setErrorMsg(errorMsg));
     }
 
     private void retryIfPossible(Long taskId, Long docId) {
-        IndexTask indexTask = taskRepository.findById(taskId);
+        IndexTask indexTask = indexTaskRepository.findById(taskId);
         if (Objects.isNull(indexTask)) {
             throw new RuntimeException("任务不存在: " + taskId);
         }
@@ -286,7 +286,7 @@ public class IndexService {
         if (indexTask.getRetryCount() < indexTask.getMaxRetry() && Objects.equals(indexTask.getStatus(), IndexTask.TaskStatus.FAILED)) {
             indexTask.setRetryCount(indexTask.getRetryCount() + 1)
                     .setStatus(IndexTask.TaskStatus.PENDING);
-            taskRepository.updateById(indexTask);
+            indexTaskRepository.updateById(indexTask);
             log.info("IndexService.retryIfPossible taskId={},retryCount={}", taskId, indexTask.getRetryCount());
             // 延迟重试（指数退避：1s, 2s, 4s）
             scheduleRetry(taskId, docId, indexTask.getRetryCount());
@@ -305,7 +305,7 @@ public class IndexService {
      * MinIO 任务走 executeFromMinio，文本任务（文本只在内存里）直接放弃自动重试。
      */
     protected void scheduleRetry(Long taskId, Long docId, int retryCount) {
-        IndexTask indexTask = taskRepository.findById(taskId);
+        IndexTask indexTask = indexTaskRepository.findById(taskId);
         if (Objects.isNull(indexTask)) {
             log.warn("IndexService.scheduleRetry taskId={},indexTask not found", taskId);
             return;
