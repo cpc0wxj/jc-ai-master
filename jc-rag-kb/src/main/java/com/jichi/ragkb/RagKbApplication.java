@@ -9,9 +9,9 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 @EnableAsync
 @EnableRetry
-@SpringBootApplication
 @MapperScan("com.jichi.ragkb.mapper")
-@EnableAspectJAutoProxy(exposeProxy = true)
+@SpringBootApplication
+@EnableAspectJAutoProxy(proxyTargetClass = true, exposeProxy = true)
 public class RagKbApplication {
     public static void main(String[] args) {
         SpringApplication.run(RagKbApplication.class, args);

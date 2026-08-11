@@ -21,7 +21,6 @@ public interface IndexTaskRepository {
      */
     IndexTask findById(Long id);
 
-
     /**
      * 查询指定文档最近一次创建的索引任务
      */

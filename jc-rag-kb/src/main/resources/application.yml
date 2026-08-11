@@ -13,29 +13,19 @@ spring:
       minimum-idle: 5
       connection-timeout: 30000
 
-# ========== MyBatis-Plus ==========
-mybatis-plus:
-  mapper-locations: classpath*:/mapper/**/*.xml
-  configuration:
-    map-underscore-to-camel-case: true
-    # 枚举默认用 name() 存取
-    default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
-  global-config:
-    db-config:
-      id-type: auto               # 主键策略：数据库自增
-
   # ========== Redis ==========
   data:
     redis:
       host: 127.0.0.1
       port: 16379
-      # password:    # 如果 Redis 设了密码就打开这行
+      password: 1111111a
       database: 1
       lettuce:
         pool:
           max-active: 16
           max-idle: 8
           min-idle: 2
+
   # ========== 异步任务线程池 ==========
   task:
     execution:
@@ -56,7 +46,7 @@ mybatis-plus:
     openai:
       # 使用 DashScope 的 OpenAI 兼容接口
       base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-      api-key: sk-xxxxx
+      api-key: sk-9e085308d2e644e99464c5bcb1ba8b49
       chat:
         options:
           model: qwen-plus
@@ -65,6 +55,17 @@ mybatis-plus:
       embedding:
         options:
           model: text-embedding-v3
+
+# ========== MyBatis-Plus ==========
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    # 枚举默认用 name() 存取
+    default-enum-type-handler: com.baomidou.mybatisplus.core.handlers.MybatisEnumTypeHandler
+  global-config:
+    db-config:
+      id-type: auto               # 主键策略：数据库自增
 
 # ========== MinIO ==========
 minio:
@@ -76,7 +77,7 @@ minio:
 # ========== Reranker ==========
 reranker:
   endpoint: https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank
-  api-key: sk-xxxxxx
+  api-key: sk-9e085308d2e644e99464c5bcb1ba8b49
   model: gte-rerank-v2
   timeout-ms: 800       # 超时时间，超过则降级
   top-n: 5              # 精排后保留 Top 5
