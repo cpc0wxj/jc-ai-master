@@ -61,7 +61,7 @@ public class HallucinationChecker {
             return parseResult(response);
 
         } catch (Exception e) {
-            log.warn("HallucinationChecker.check failed,message={}", e.getMessage());
+            log.warn("HallucinationChecker.check failed message={}", e.getMessage());
             return new FaithfulnessResult(true, 0.5, "检测失败，默认通过");
         }
     }

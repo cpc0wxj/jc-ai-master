@@ -42,7 +42,7 @@ public class SourceBuilder {
 
         // 如果模型没有标注引用（或标注不完整），把所有 chunk 都列为来源
         if (citedIndices.isEmpty()) {
-            log.debug("SourceBuilder.buildSources noCitation,usingAllChunks");
+            log.debug("SourceBuilder.buildSources noCitation usingAllChunks");
             citedIndices = new LinkedHashSet<>();
             for (int i = 1; i <= chunks.size(); i++) {
                 citedIndices.add(i);

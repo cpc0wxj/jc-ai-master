@@ -61,7 +61,7 @@ public class FullRagPipeline {
         if (System.currentTimeMillis() % 5 == 0) {
             var faithResult = hallucinationChecker.check(question, answer, context);
             if (!faithResult.isFaithful()) {
-                log.warn("FullRagPipeline.query hallucinationDetected,score={},reason={}", faithResult.score(), faithResult.reason());
+                log.warn("FullRagPipeline.query hallucinationDetected score={},reason={}", faithResult.score(), faithResult.reason());
             }
         }
 

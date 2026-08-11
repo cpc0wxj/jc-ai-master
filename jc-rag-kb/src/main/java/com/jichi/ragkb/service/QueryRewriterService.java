@@ -50,7 +50,7 @@ public class QueryRewriterService {
             return hypothetical;
         } catch (Exception e) {
             // HyDE 失败不影响主流程，降级返回原始问题
-            log.warn("QueryRewriterService.generateHypotheticalAnswer failed,message={}", e.getMessage());
+            log.warn("QueryRewriterService.generateHypotheticalAnswer failed message={}", e.getMessage());
             return question;
         }
     }
@@ -93,7 +93,7 @@ public class QueryRewriterService {
             return queries;
 
         } catch (Exception e) {
-            log.warn("QueryRewriterService.expandQuery failed,message={}", e.getMessage());
+            log.warn("QueryRewriterService.expandQuery failed message={}", e.getMessage());
             return List.of(question);
         }
     }

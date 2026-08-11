@@ -71,7 +71,7 @@ public class EvalService {
                 }
 
             } catch (Exception e) {
-                log.error("EvalService.runEvaluation questionFailed,questionId={},error={}", question.getId(), e.getMessage());
+                log.error("EvalService.runEvaluation questionFailed questionId={},error={}", question.getId(), e.getMessage());
             }
         }
 
@@ -92,7 +92,7 @@ public class EvalService {
                 .setAvgFaithfulness(avgFaithfulness)
                 .setEvalAt(LocalDateTime.now());
 
-        log.info("EvalService.runEvaluation completed,hitRate={}%,mrr={},faithfulness={}",
+        log.info("EvalService.runEvaluation completed hitRate={}%,mrr={},faithfulness={}",
                 String.format("%.2f", hitRate * 100),
                 String.format("%.4f", mrrScore),
                 String.format("%.4f", avgFaithfulness));

@@ -57,7 +57,7 @@ public class FeedbackService {
 
         // 差评：把这个问题加入评估候选（人工审核后加入正式评估集）
         if (feedback == -1) {
-            log.info("FeedbackService.submitFeedback negativeFeedback,messageId={}", messageId);
+            log.info("FeedbackService.submitFeedback negativeFeedback messageId={}", messageId);
         }
 
         log.info("FeedbackService.submitFeedback messageId={},feedback={},userId={}",

@@ -44,7 +44,7 @@ public class MinioStorageService {
             log.info("MinioStorageService.upload path={}", objectPath);
             return objectPath;
         } catch (Exception e) {
-            log.error("MinioStorageService.upload failed,path={},error={}", objectPath, e.getMessage(), e);
+            log.error("MinioStorageService.upload failed path={},error={}", objectPath, e.getMessage(), e);
             throw new RuntimeException("文件上传失败：" + e.getMessage(), e);
         }
     }
@@ -60,7 +60,7 @@ public class MinioStorageService {
                     .build());
             return stream.readAllBytes();
         } catch (Exception e) {
-            log.error("MinioStorageService.download failed,path={},error={}", objectPath, e.getMessage(), e);
+            log.error("MinioStorageService.download failed path={},error={}", objectPath, e.getMessage(), e);
             throw new RuntimeException("文件下载失败：" + e.getMessage(), e);
         }
     }
@@ -77,7 +77,7 @@ public class MinioStorageService {
             log.info("MinioStorageService.delete path={}", objectPath);
         } catch (Exception e) {
             // 删除失败不抛出异常，只记录警告（文件可能已经不存在）
-            log.warn("MinioStorageService.delete failed,path={},error={}", objectPath, e.getMessage());
+            log.warn("MinioStorageService.delete failed path={},error={}", objectPath, e.getMessage());
         }
     }
 

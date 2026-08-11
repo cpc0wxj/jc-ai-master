@@ -33,7 +33,7 @@ public class ChunkSplitManager implements BeanPostProcessor {
                 throw new IllegalStateException("ChunkSplitManager.postProcessBeforeInitialization 重复注册ChunkSplitHandler");
             }
             splitterMap.put(handler.getChunkSplitStrategy(), handler);
-            log.info("ChunkSplitManager.postProcessBeforeInitialization 已加载分块器={}", handler.getChunkSplitStrategy());
+            log.info("ChunkSplitManager.postProcessBeforeInitialization 已加载分块器 chunkSplitStrategy={}", handler.getChunkSplitStrategy());
         }
         return bean;
     }

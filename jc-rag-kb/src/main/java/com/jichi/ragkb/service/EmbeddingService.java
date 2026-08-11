@@ -181,7 +181,7 @@ public class EmbeddingService {
      */
     @Recover
     public List<float[]> embedFromApiFallback(Exception e, Collection<String> texts) {
-        log.error("[Embedding] 重试3次后仍失败,texts.size={},error={}", texts.size(), e.getMessage());
+        log.error("EmbeddingService.embedFromApiFallback 重试3次后仍失败 textsSize={},error={}", texts.size(), e.getMessage());
         throw new RuntimeException("Embedding API 调用失败，已重试3次：" + e.getMessage(), e);
     }
 }

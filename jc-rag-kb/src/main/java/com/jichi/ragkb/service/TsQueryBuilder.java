@@ -52,7 +52,7 @@ public class TsQueryBuilder {
 
         // 用 & 连接（AND 查询），至少含所有关键词
         String tsQuery = String.join(" & ", keywords);
-        log.debug("TsQueryBuilder.build query='{}',tsQuery='{}'", query, tsQuery);
+        log.debug("TsQueryBuilder.build query={},tsQuery={}", query, tsQuery);
         return tsQuery;
     }
 }

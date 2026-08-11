@@ -58,7 +58,7 @@ public class RerankerService {
             return reranked;
 
         } catch (Exception e) {
-            log.warn("RerankerService.rerank failed,message={}", e.getMessage());
+            log.warn("RerankerService.rerank failed message={}", e.getMessage());
             // 降级：直接用 RRF 分数取 TopN
             return candidates.stream()
                     .limit(topN)

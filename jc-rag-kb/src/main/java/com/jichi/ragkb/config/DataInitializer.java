@@ -28,17 +28,17 @@ public class DataInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         if (kbDocumentRepository.count() > 0) {
-            log.info("[DataInit] 已有文档数据，跳过初始化");
+            log.info("DataInitializer.run 已有文档数据，跳过初始化");
             return;
         }
 
-        log.info("[DataInit] 开始初始化测试文档...");
+        log.info("DataInitializer.run 开始初始化测试文档");
 
         initDocument(1L, "hr-handbook.txt", "employee-handbook.txt", "TXT", 1L, "test-docs/hr-handbook.txt");
         initDocument(2L, "tech-spec.txt", "tech-specification.txt", "TXT", 2L, "test-docs/tech-spec.txt");
         initDocument(3L, "product-faq.txt", "product-faq.txt", "TXT", 3L, "test-docs/product-faq.txt");
 
-        log.info("[DataInit] 测试文档初始化完成，等待异步索引...");
+        log.info("DataInitializer.run 测试文档初始化完成，等待异步索引");
     }
 
     private void initDocument(Long kbId, String minioPath, String fileName, String fileType, Long uploadedBy, String classpath) throws IOException {
@@ -57,6 +57,6 @@ public class DataInitializer implements ApplicationRunner {
         String text = new String(content, StandardCharsets.UTF_8);
         indexService.submitIndexTask(kbDocument.getId(), text);
 
-        log.info("[DataInit] 文档已提交索引：id={}, fileName={}", kbId, fileName);
+        log.info("DataInitializer.initDocument 文档已提交索引 kbId={},fileName={}", kbId, fileName);
     }
 }

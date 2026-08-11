@@ -32,7 +32,7 @@ public class DocumentParseManager implements BeanPostProcessor {
                 throw new IllegalStateException("DocumentParseManager.postProcessBeforeInitialization 重复注册DocumentParseHandler");
             }
             parserMap.put(handler.getSupportedFileType(), handler);
-            log.info("DocumentParseManager.postProcessBeforeInitialization 已加载文档解析器={}", handler.getSupportedFileType());
+            log.info("DocumentParseManager.postProcessBeforeInitialization 已加载文档解析器 supportedFileType={}", handler.getSupportedFileType());
         }
         return bean;
     }

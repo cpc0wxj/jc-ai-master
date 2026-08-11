@@ -307,14 +307,14 @@ public class IndexService {
     protected void scheduleRetry(Long taskId, Long docId, int retryCount) {
         IndexTask indexTask = indexTaskRepository.findById(taskId);
         if (Objects.isNull(indexTask)) {
-            log.warn("IndexService.scheduleRetry taskId={},indexTask not found", taskId);
+            log.warn("IndexService.scheduleRetry indexTask未找到 taskId={}", taskId);
             return;
         }
 
         // 若为文本任务
         if (Objects.equals(indexTask.getTaskType(), "INDEX_FROM_TEXT")) {
             // 文本只在内存里，无法持久化重试
-            log.warn("IndexService.scheduleRetry taskId={},taskType={},text indexTask not support retry", taskId, indexTask.getTaskType());
+            log.warn("IndexService.scheduleRetry text类型不支持重试 taskId={},taskType={}", taskId, indexTask.getTaskType());
             return;
         }
 

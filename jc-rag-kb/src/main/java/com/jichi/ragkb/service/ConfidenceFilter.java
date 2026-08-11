@@ -36,7 +36,7 @@ public class ConfidenceFilter {
             HybridRetrieverService.ScoredChunk scoredChunk = chunks.stream()
                     .max(Comparator.comparingDouble(HybridRetrieverService.ScoredChunk::score))
                     .orElse(chunks.get(0));
-            log.debug("ConfidenceFilter.filter allBelowThreshold,minScore={},bestScore={}", minScore, scoredChunk.score());
+            log.debug("ConfidenceFilter.filter allBelowThreshold minScore={},bestScore={}", minScore, scoredChunk.score());
             filtered = List.of(scoredChunk);
         }
 

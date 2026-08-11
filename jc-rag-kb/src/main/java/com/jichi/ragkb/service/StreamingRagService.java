@@ -96,7 +96,7 @@ public class StreamingRagService {
                             fullAnswer.append(token);
                             emitter.send(SseEmitter.event().name("token").data(token));
                         } catch (IOException e) {
-                            log.warn("StreamingRagService.streamQuery sseSendFailed,clientMayDisconnected");
+                            log.warn("StreamingRagService.streamQuery sseSendFailed clientMayDisconnected");
                             throw new RuntimeException("SSE 连接断开");
                         }
                     })

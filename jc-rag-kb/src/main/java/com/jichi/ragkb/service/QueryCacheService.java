@@ -33,7 +33,7 @@ public class QueryCacheService {
         String key = buildKey(question, kbIds);
         Object cached = redisTemplate.opsForValue().get(key);
         if (cached instanceof RagResponse resp) {
-            log.info("QueryCacheService.getFromCache hit,question={}", question.substring(0, Math.min(30, question.length())));
+            log.info("QueryCacheService.getFromCache hit question={}", question.substring(0, Math.min(30, question.length())));
             return resp;
         }
         return null;
