@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jichi.ragkb.mapper.EvalResultMapper">
+
+    <!-- 按知识库ID和评估版本聚合统计 -->
+    <!-- JOIN kb_eval_dataset 获取 kb_id，按 eval_version 分组计算 Hit Rate、MRR、Faithfulness -->
+    <select id="aggregateByVersion" resultType="com.jichi.ragkb.dto.EvalReport">
+        SELECT
+            d.kb_id              AS kbId,
+            r.eval_version       AS evalVersion,
+            COUNT(*)             AS totalQuestions,
+            SUM(CASE WHEN r.hit = TRUE THEN 1 ELSE 0 END)  AS hitCount,
+            AVG(CASE WHEN r.hit = TRUE THEN 1.0 ELSE 0.0 END) AS hitRate,
+            AVG(CASE WHEN r.rank <![CDATA[>]]> 0 THEN 1.0 / r.rank ELSE 0.0 END) AS mrr,
+            AVG(COALESCE(r.faithfulness, 0))   AS avgFaithfulness,
+            MAX(r.eval_at)       AS evalAt
+        FROM kb_eval_result r
+        JOIN kb_eval_dataset d ON r.dataset_id = d.id
+        WHERE d.kb_id = #{kbId}
+        GROUP BY d.kb_id, r.eval_version
+        ORDER BY MAX(r.eval_at) DESC
+    </select>
+
+</mapper>

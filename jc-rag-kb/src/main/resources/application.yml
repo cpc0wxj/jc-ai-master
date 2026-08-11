@@ -53,8 +53,18 @@ spring:
           temperature: 0.1      # RAG 场景用低温，减少幻觉
           max-tokens: 2048
       embedding:
+        # Embedding 单独配置 base-url 和 api-key（可与 chat 不同）
+        base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+        api-key: sk-9e085308d2e644e99464c5bcb1ba8b49
         options:
           model: text-embedding-v3
+
+  # ========== Spring Cache（@Cacheable，底层 Redis） ==========
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000    # 10 分钟
+      cache-null-values: false
 
 # ========== MyBatis-Plus ==========
 mybatis-plus:
@@ -106,6 +116,7 @@ sa-token:
   timeout: 86400        # Token 有效期 1 天
   is-concurrent: true
   is-share: false
+  is-read-header: true  # 从 Header 读取 token（curl / 前端 axios 都走 Header）
 
 # ========== 监控 ==========
 management:

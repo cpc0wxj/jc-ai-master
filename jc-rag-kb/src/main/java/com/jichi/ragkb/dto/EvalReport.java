@@ -1,0 +1,33 @@
+package com.jichi.ragkb.dto;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
+import java.time.LocalDateTime;
+
+/**
+ * RAG 评估报告
+ */
+@Getter
+@Setter
+@Accessors(chain = true)
+@NoArgsConstructor
+public class EvalReport {
+    private Long kbId;
+    private String evalVersion;
+    private long totalQuestions;
+    private long hitCount;
+    private double hitRate;
+    private double mrr;
+    private double avgFaithfulness;
+    private LocalDateTime evalAt;
+
+    public String summary() {
+        return String.format(
+                "评估版本：%s | 问题数：%d | Hit Rate：%.1f%% | MRR：%.4f | Faithfulness：%.4f",
+                evalVersion, totalQuestions,
+                hitRate * 100, mrr, avgFaithfulness);
+    }
+}

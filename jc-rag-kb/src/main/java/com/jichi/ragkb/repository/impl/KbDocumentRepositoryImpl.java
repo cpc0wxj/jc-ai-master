@@ -7,6 +7,7 @@ import com.jichi.ragkb.mapper.KbDocumentMapper;
 import com.jichi.ragkb.repository.KbDocumentRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -50,5 +51,11 @@ public class KbDocumentRepositoryImpl extends ServiceImpl<KbDocumentMapper, KbDo
                 .eq(KbDocument::getIsDeleted, false);
 
         return list(lambdaQueryWrapper);
+    }
+
+    @Override
+    public List<KbDocument> findAllById(Collection<Long> ids) {
+        return list(new LambdaQueryWrapper<KbDocument>()
+                .in(KbDocument::getId, ids));
     }
 }

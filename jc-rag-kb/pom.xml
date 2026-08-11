@@ -111,6 +111,18 @@
             <artifactId>sa-token-spring-boot3-starter</artifactId>
             <version>1.39.0</version>
         </dependency>
+        <!-- Sa-Token 整合 Redis（Jackson 序列化），登录信息持久化到 Redis，重启不丢失 -->
+        <dependency>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-redis-jackson</artifactId>
+            <version>1.39.0</version>
+        </dependency>
+
+        <!-- ========== Spring Cache（@Cacheable，底层用 Redis） ========== -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
 
         <!-- ========== MyBatis-Plus（与 JPA 共存，部分表使用 MyBatis-Plus） ========== -->
         <dependency>

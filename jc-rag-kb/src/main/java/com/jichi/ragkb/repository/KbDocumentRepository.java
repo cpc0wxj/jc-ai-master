@@ -2,6 +2,7 @@ package com.jichi.ragkb.repository;
 
 import com.jichi.ragkb.entity.KbDocument;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -37,4 +38,9 @@ public interface KbDocumentRepository {
      * 查询指定知识库下未删除的文档列表
      */
     List<KbDocument> findByKbIdAndIsDeletedFalse(Long kbId);
+
+    /**
+     * 按 ID 集合批量查询文档
+     */
+    List<KbDocument> findAllById(Collection<Long> ids);
 }

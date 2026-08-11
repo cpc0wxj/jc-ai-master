@@ -38,6 +38,18 @@ public class DocChunkRepositoryImpl extends ServiceImpl<DocChunkMapper, DocChunk
     }
 
     @Override
+    public List<DocChunk> findByKbId(Long kbId) {
+        return list(new LambdaQueryWrapper<DocChunk>()
+                .eq(DocChunk::getKbId, kbId));
+    }
+
+    @Override
+    public boolean deleteByDocId(Long docId) {
+        return remove(new LambdaQueryWrapper<DocChunk>()
+                .eq(DocChunk::getDocId, docId));
+    }
+
+    @Override
     public List<DocChunk> findByIds(List<Long> ids) {
         return list(new LambdaQueryWrapper<DocChunk>()
                 .in(DocChunk::getId, ids));

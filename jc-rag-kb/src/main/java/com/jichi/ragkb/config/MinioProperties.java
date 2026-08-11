@@ -22,4 +22,8 @@ public class MinioProperties {
      * MinIO 私有密钥（Secret Key），用于身份认证
      */
     private String secretKey;
+    /**
+     * MinIO 存储桶名称
+     */
+    private String bucket;
 }

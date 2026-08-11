@@ -62,6 +62,16 @@ public class EmbeddingService {
     private static final int BATCH_SIZE = 20;
 
     /**
+     * 单条文本向量化，带 Redis 缓存
+     *
+     * @param text 待向量化的文本
+     * @return 向量数组
+     */
+    public float[] embed(String text) {
+        return embedBatch(List.of(text)).get(0);
+    }
+
+    /**
      * 批量向量化，带 Redis 缓存
      *
      * @param textList 待向量化的文本列表

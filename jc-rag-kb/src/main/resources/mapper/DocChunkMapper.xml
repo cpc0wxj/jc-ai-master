@@ -5,21 +5,31 @@
     <!-- 向量相似度检索（余弦相似度） -->
     <!-- PGVector 的 <=> 操作符：余弦距离，距离越小越相似 -->
     <!-- resultMap 引用 MyBatis-Plus autoResultMap 生成的映射，确保 embedding 字段经过 FloatVectorTypeHandler 转换 -->
+    <!-- JOIN kb_document 过滤条件：doc_version = d.version 只取当前版本 chunk，d.is_deleted = FALSE 排除软删除文档 -->
     <select id="findByVectorSimilarity" resultMap="mybatis-plus_DocChunk">
-        SELECT * FROM kb_doc_chunk
-        WHERE kb_id = #{kbId}
-        ORDER BY embedding <![CDATA[<=>]]> CAST(#{embedding} AS vector)
+        SELECT c.*
+        FROM kb_doc_chunk c
+        JOIN kb_document d ON c.doc_id = d.id
+        WHERE c.kb_id = #{kbId}
+          AND c.doc_version = d.version
+          AND d.is_deleted = FALSE
+        ORDER BY c.embedding <![CDATA[<=>]]> CAST(#{embedding} AS vector)
         LIMIT #{topK}
     </select>
 
     <!-- 全文检索（PostgreSQL 全文搜索） -->
     <!-- to_tsquery('simple', :query) 匹配 content_tsv，simple 配置不做词干化，适合中文关键词 -->
     <!-- ts_rank 排序确保最相关结果在前，实际分数由调用方用 RRF 融合处理 -->
+    <!-- JOIN kb_document 过滤条件同向量检索：只取当前版本 chunk，排除软删除文档 -->
     <select id="findByFullTextSearch" resultMap="mybatis-plus_DocChunk">
-        SELECT * FROM kb_doc_chunk
-        WHERE kb_id = #{kbId}
-          AND content_tsv @@ to_tsquery('simple', #{tsQuery})
-        ORDER BY ts_rank(content_tsv, to_tsquery('simple', #{tsQuery})) DESC
+        SELECT c.*
+        FROM kb_doc_chunk c
+        JOIN kb_document d ON c.doc_id = d.id
+        WHERE c.kb_id = #{kbId}
+          AND c.doc_version = d.version
+          AND d.is_deleted = FALSE
+          AND c.content_tsv @@ to_tsquery('simple', #{tsQuery})
+        ORDER BY ts_rank(c.content_tsv, to_tsquery('simple', #{tsQuery})) DESC
         LIMIT #{topK}
     </select>
 

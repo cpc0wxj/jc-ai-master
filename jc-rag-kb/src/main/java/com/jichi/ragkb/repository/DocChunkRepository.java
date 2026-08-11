@@ -29,6 +29,16 @@ public interface DocChunkRepository {
     List<DocChunk> findByDocId(Long docId);
 
     /**
+     * 按知识库 ID 查询所有分块
+     */
+    List<DocChunk> findByKbId(Long kbId);
+
+    /**
+     * 按文档 ID 删除所有分块（删除文档时清理）
+     */
+    boolean deleteByDocId(Long docId);
+
+    /**
      * 按 ID 列表批量查询
      */
     List<DocChunk> findByIds(List<Long> ids);
