@@ -31,19 +31,19 @@ public class AuthController {
     );
 
     @PostMapping("/login")
-    public ApiResponse<String> login(@RequestBody LoginRequest req) {
-        UserProfile profile = DEMO_USERS.get(req.getUsername());
-        if (Objects.isNull(profile) || !"demo123".equals(req.getPassword())) {
+    public ApiResponse<String> login(@RequestBody LoginRequest loginRequest) {
+        UserProfile userProfile = DEMO_USERS.get(loginRequest.getUsername());
+        if (Objects.isNull(userProfile) || !"demo123".equals(loginRequest.getPassword())) {
             return ApiResponse.error(401, "用户名或密码错误");
         }
 
-        StpUtil.login(profile.userId());
+        StpUtil.login(userProfile.userId());
         // 把用户附加信息存入 Session，Interceptor 通过 StpUtil.getSession().get() 读取
-        StpUtil.getSession().set("departmentId", profile.departmentId());
-        StpUtil.getSession().set("role", profile.role());
+        StpUtil.getSession().set("departmentId", userProfile.departmentId());
+        StpUtil.getSession().set("role", userProfile.role());
 
         String token = StpUtil.getTokenValue();
-        log.info("AuthController.login username={},userId={},dept={}", req.getUsername(), profile.userId(), profile.departmentId());
+        log.info("AuthController.login username={},userId={},dept={}", loginRequest.getUsername(), userProfile.userId(), userProfile.departmentId());
 
         return ApiResponse.ok(token);
     }

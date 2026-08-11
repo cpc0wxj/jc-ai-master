@@ -33,11 +33,11 @@ public class ConfidenceFilter {
 
         if (filtered.isEmpty() && !chunks.isEmpty()) {
             // 至少保留分数最高的 1 个（上游已排序，但以防万一用 max 取最高分）
-            HybridRetrieverService.ScoredChunk best = chunks.stream()
+            HybridRetrieverService.ScoredChunk scoredChunk = chunks.stream()
                     .max(Comparator.comparingDouble(HybridRetrieverService.ScoredChunk::score))
                     .orElse(chunks.get(0));
-            log.debug("ConfidenceFilter.filter allBelowThreshold,minScore={},bestScore={}", minScore, best.score());
-            filtered = List.of(best);
+            log.debug("ConfidenceFilter.filter allBelowThreshold,minScore={},bestScore={}", minScore, scoredChunk.score());
+            filtered = List.of(scoredChunk);
         }
 
         int filteredCount = chunks.size() - filtered.size();

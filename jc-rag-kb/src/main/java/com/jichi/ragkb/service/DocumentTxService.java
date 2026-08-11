@@ -19,9 +19,9 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class DocumentTxService {
-    private final KbDocumentRepository documentRepository;
+    private final KbDocumentRepository kbDocumentRepository;
 
-    private final MinioStorageService minioService;
+    private final MinioStorageService minioStorageService;
 
     /**
      * 在一个事务里完成：上传新文件 + 更新文档记录
@@ -29,7 +29,7 @@ public class DocumentTxService {
      */
     @Transactional
     public String updateDocumentRecord(Long docId, MultipartFile newFile) {
-        KbDocument kbDocument = documentRepository.findById(docId);
+        KbDocument kbDocument = kbDocumentRepository.findById(docId);
         if (Objects.isNull(kbDocument)) {
             throw new RuntimeException("文档不存在：" + docId);
         }
@@ -38,7 +38,7 @@ public class DocumentTxService {
         }
 
         String oldMinioPath = kbDocument.getMinioPath();
-        String newMinioPath = minioService.upload(kbDocument.getKbId(), newFile);
+        String newMinioPath = minioStorageService.upload(kbDocument.getKbId(), newFile);
 
         kbDocument.setFileName(newFile.getOriginalFilename())
                 .setFileSize(newFile.getSize())
@@ -49,7 +49,7 @@ public class DocumentTxService {
                 .setChunkCount(null)
                 .setTokenCount(null)
                 .setIndexedAt(null);
-        documentRepository.updateById(kbDocument);
+        kbDocumentRepository.updateById(kbDocument);
 
         log.info("DocumentTxService.updateDocumentRecord docId={},newVersion={},newFile={}", docId, kbDocument.getVersion(), newFile.getOriginalFilename());
         return oldMinioPath;
@@ -60,22 +60,22 @@ public class DocumentTxService {
      */
     @Transactional
     public void forceReindex(Long docId) {
-        KbDocument doc = documentRepository.findById(docId);
-        if (Objects.isNull(doc)) {
+        KbDocument kbDocument = kbDocumentRepository.findById(docId);
+        if (Objects.isNull(kbDocument)) {
             throw new RuntimeException("文档不存在：" + docId);
         }
-        if (Boolean.TRUE.equals(doc.getIsDeleted())) {
+        if (Boolean.TRUE.equals(kbDocument.getIsDeleted())) {
             throw new RuntimeException("文档已删除，无法重建：" + docId);
         }
 
-        doc.setVersion(doc.getVersion() + 1)
+        kbDocument.setVersion(kbDocument.getVersion() + 1)
                 .setStatus(KbDocument.DocumentStatus.PENDING)
                 .setErrorMsg(null)
                 .setChunkCount(null)
                 .setTokenCount(null)
                 .setIndexedAt(null);
-        documentRepository.updateById(doc);
+        kbDocumentRepository.updateById(kbDocument);
 
-        log.info("DocumentTxService.forceReindex docId={},newVersion={}", docId, doc.getVersion());
+        log.info("DocumentTxService.forceReindex docId={},newVersion={}", docId, kbDocument.getVersion());
     }
 }

@@ -18,10 +18,10 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class FullRagPipeline {
-    private final EnhancedRetrieverService enhancedRetriever;
+    private final EnhancedRetrieverService enhancedRetrieverService;
     private final RerankerService rerankerService;
     private final ConfidenceFilter confidenceFilter;
-    private final ContextTrimmerService contextTrimmer;
+    private final ContextTrimmerService contextTrimmerService;
     private final SourceBuilder sourceBuilder;
     private final HallucinationChecker hallucinationChecker;
     private final ChatClient chatClient;
@@ -31,7 +31,7 @@ public class FullRagPipeline {
         long pipelineStart = System.currentTimeMillis();
 
         // Step 1：增强检索（混合检索 + HyDE）
-        List<HybridRetrieverService.ScoredChunk> candidates = enhancedRetriever.retrieveWithHyde(question, kbIds, 20);
+        List<HybridRetrieverService.ScoredChunk> candidates = enhancedRetrieverService.retrieveWithHyde(question, kbIds, 20);
 
         if (candidates.isEmpty()) {
             return RagResponse.notFound();
@@ -48,7 +48,7 @@ public class FullRagPipeline {
         }
 
         // Step 4：上下文裁剪（控制 Token 预算）
-        List<HybridRetrieverService.ScoredChunk> trimmed = contextTrimmer.trim(filtered);
+        List<HybridRetrieverService.ScoredChunk> trimmed = contextTrimmerService.trim(filtered);
 
         // Step 5：构建带引用编号的 context + 用 RagPromptTemplate 生成 System Prompt
         String context = buildContext(trimmed);

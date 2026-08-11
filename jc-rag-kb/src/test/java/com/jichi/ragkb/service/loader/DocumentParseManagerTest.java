@@ -11,15 +11,14 @@ import java.io.InputStream;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @SpringBootTest
 class DocumentParseManagerTest {
     @Autowired
-    private DocumentParseManager loaderService;
+    private DocumentParseManager documentParseManager;
 
-    private String extractText(ParseResult result) {
-        return result.getPageContentList().stream()
+    private String extractText(ParseResult parseResult) {
+        return parseResult.getPageContentList().stream()
                 .map(ParseResult.PageContent::getText)
                 .collect(Collectors.joining("\n"));
     }
@@ -28,7 +27,7 @@ class DocumentParseManagerTest {
     void parseTxtFile() throws Exception {
         ClassPathResource classPathResource = new ClassPathResource("test-docs/hr-handbook.txt");
         try (InputStream inputStream = classPathResource.getInputStream()) {
-            ParseResult parseResult = loaderService.load("hr-handbook.txt", inputStream);
+            ParseResult parseResult = documentParseManager.load("hr-handbook.txt", inputStream);
             String text = extractText(parseResult);
 
             System.out.println("解析文本长度：" + text.length());
@@ -44,7 +43,7 @@ class DocumentParseManagerTest {
     void parsePdf() throws Exception {
         ClassPathResource classPathResource = new ClassPathResource("test-docs/policy.pdf");
         try (InputStream inputStream = classPathResource.getInputStream()) {
-            ParseResult parseResult = loaderService.load("policy.pdf", inputStream);
+            ParseResult parseResult = documentParseManager.load("policy.pdf", inputStream);
             String text = extractText(parseResult);
 
             System.out.println("解析文本长度：" + text.length());
@@ -56,7 +55,7 @@ class DocumentParseManagerTest {
     void parseMd() throws Exception {
         ClassPathResource resource = new ClassPathResource("test-docs/hr-handbook.md");
         try (InputStream inputStream = resource.getInputStream()) {
-            ParseResult parseResult = loaderService.load("hr-handbook.md", inputStream);
+            ParseResult parseResult = documentParseManager.load("hr-handbook.md", inputStream);
             String text = extractText(parseResult);
 
             System.out.println("解析文本长度：" + text.length());

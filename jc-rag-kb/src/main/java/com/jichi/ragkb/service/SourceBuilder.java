@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SourceBuilder {
     private final CitationParser citationParser;
-    private final KbDocumentRepository documentRepository;
+    private final KbDocumentRepository kbDocumentRepository;
     private final ObjectMapper objectMapper;
 
     /**
@@ -51,9 +51,9 @@ public class SourceBuilder {
 
         // 批量查询文档信息（避免 N+1 查询）
         Set<Long> docIds = chunks.stream()
-                .map(sc -> sc.chunk().getDocId())
+                .map(scoredChunk -> scoredChunk.chunk().getDocId())
                 .collect(Collectors.toSet());
-        Map<Long, KbDocument> docMap = documentRepository.findAllById(docIds).stream()
+        Map<Long, KbDocument> docMap = kbDocumentRepository.findAllById(docIds).stream()
                 .collect(Collectors.toMap(KbDocument::getId, d -> d));
 
         // 组装来源信息
@@ -63,17 +63,17 @@ public class SourceBuilder {
                 continue;
             }
 
-            HybridRetrieverService.ScoredChunk sc = chunks.get(idx - 1);
-            KbDocument doc = docMap.get(sc.chunk().getDocId());
+            HybridRetrieverService.ScoredChunk scoredChunk = chunks.get(idx - 1);
+            KbDocument kbDocument = docMap.get(scoredChunk.chunk().getDocId());
 
             sources.add(new RagResponse.Source()
-                    .setChunkId(sc.id())
-                    .setDocId(sc.chunk().getDocId())
-                    .setDocName(Objects.nonNull(doc) ? doc.getFileName() : "未知文档")
-                    .setPageNum(sc.chunk().getPageNum())
-                    .setSectionTitle(sc.chunk().getSectionTitle())
-                    .setExcerpt(sc.content().substring(0, Math.min(200, sc.content().length())))
-                    .setScore(sc.score()));
+                    .setChunkId(scoredChunk.id())
+                    .setDocId(scoredChunk.chunk().getDocId())
+                    .setDocName(Objects.nonNull(kbDocument) ? kbDocument.getFileName() : "未知文档")
+                    .setPageNum(scoredChunk.chunk().getPageNum())
+                    .setSectionTitle(scoredChunk.chunk().getSectionTitle())
+                    .setExcerpt(scoredChunk.content().substring(0, Math.min(200, scoredChunk.content().length())))
+                    .setScore(scoredChunk.score()));
         }
 
         return sources;

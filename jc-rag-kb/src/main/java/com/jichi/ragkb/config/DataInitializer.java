@@ -21,13 +21,13 @@ import java.nio.charset.StandardCharsets;
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
-    private final KbDocumentRepository documentRepository;
+    private final KbDocumentRepository kbDocumentRepository;
 
     private final IndexService indexService;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        if (documentRepository.count() > 0) {
+        if (kbDocumentRepository.count() > 0) {
             log.info("[DataInit] 已有文档数据，跳过初始化");
             return;
         }
@@ -52,7 +52,7 @@ public class DataInitializer implements ApplicationRunner {
                 .setFileSize((long) content.length)
                 .setMinioPath(minioPath)
                 .setUploadedBy(uploadedBy);
-        documentRepository.save(kbDocument);
+        kbDocumentRepository.save(kbDocument);
 
         String text = new String(content, StandardCharsets.UTF_8);
         indexService.submitIndexTask(kbDocument.getId(), text);

@@ -50,31 +50,31 @@ public class ContextTrimmerService {
         List<HybridRetrieverService.ScoredChunk> selected = Lists.newArrayList();
         int usedTokens = 0;
 
-        for (HybridRetrieverService.ScoredChunk sc : candidates) {
-            int chunkTokens = countTokens(sc.content());
+        for (HybridRetrieverService.ScoredChunk scoredChunk : candidates) {
+            int chunkTokens = countTokens(scoredChunk.content());
 
             if (usedTokens + chunkTokens <= maxContextTokens) {
-                selected.add(sc);
+                selected.add(scoredChunk);
                 usedTokens += chunkTokens;
             } else if (selected.isEmpty()) {
                 // 第一个 chunk 就超了，截断后加入（至少要有一些内容）
-                String truncated = truncateToTokens(sc.content(),
+                String truncated = truncateToTokens(scoredChunk.content(),
                         maxContextTokens - usedTokens);
                 if (StringUtils.isNotBlank(truncated)) {
                     // 构建截断后的 DocChunk 副本，替换 content 为截断版本
-                    DocChunk truncatedChunk = new DocChunk()
-                            .setId(sc.chunk().getId())
-                            .setDocId(sc.chunk().getDocId())
-                            .setKbId(sc.chunk().getKbId())
-                            .setChunkIndex(sc.chunk().getChunkIndex())
+                    DocChunk docChunk = new DocChunk()
+                            .setId(scoredChunk.chunk().getId())
+                            .setDocId(scoredChunk.chunk().getDocId())
+                            .setKbId(scoredChunk.chunk().getKbId())
+                            .setChunkIndex(scoredChunk.chunk().getChunkIndex())
                             .setContent(truncated)
-                            .setPageNum(sc.chunk().getPageNum())
-                            .setSectionTitle(sc.chunk().getSectionTitle())
+                            .setPageNum(scoredChunk.chunk().getPageNum())
+                            .setSectionTitle(scoredChunk.chunk().getSectionTitle())
                             .setTokenCount(countTokens(truncated))
-                            .setDocVersion(sc.chunk().getDocVersion());
+                            .setDocVersion(scoredChunk.chunk().getDocVersion());
 
                     selected.add(new HybridRetrieverService.ScoredChunk(
-                            truncatedChunk, sc.score()));
+                            docChunk, scoredChunk.score()));
                     usedTokens += countTokens(truncated);
                 }
                 break;

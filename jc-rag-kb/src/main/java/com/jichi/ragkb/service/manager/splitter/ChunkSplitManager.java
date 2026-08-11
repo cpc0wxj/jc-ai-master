@@ -48,14 +48,14 @@ public class ChunkSplitManager implements BeanPostProcessor {
             return List.of();
         }
 
-        ChunkSplitHandler splitter = getHandler(parseResult);
+        ChunkSplitHandler chunkSplitHandler = getHandler(parseResult);
 
-        List<ChunkResult> chunkResultList = splitter.split(parseResult, ragChunkProperties);
+        List<ChunkResult> chunkResultList = chunkSplitHandler.split(parseResult, ragChunkProperties);
 
         // 过滤掉太短的块（少于 20 字符的碎片没有检索价值）
-        chunkResultList = CollStreamUtil.toList(chunkResultList, temp -> temp.getContent().length() >= 20 ? temp : null);
+        chunkResultList = CollStreamUtil.toList(chunkResultList, chunkResult -> chunkResult.getContent().length() >= 20 ? chunkResult : null);
 
-        log.info("ChunkSplitManager.chunk 分块完成 chunkSplitStrategy={},chunkSize={},charSum={}", splitter.getChunkSplitStrategy(), chunkResultList.size(), chunkResultList.stream().mapToInt(c -> c.getContent().length()).sum());
+        log.info("ChunkSplitManager.chunk 分块完成 chunkSplitStrategy={},chunkSize={},charSum={}", chunkSplitHandler.getChunkSplitStrategy(), chunkResultList.size(), chunkResultList.stream().mapToInt(c -> c.getContent().length()).sum());
 
         return chunkResultList;
     }
@@ -67,10 +67,10 @@ public class ChunkSplitManager implements BeanPostProcessor {
         // 判断是否应该用结构感知分块：文档有明显标题结构
         boolean hasStructure = parseResult.getPageContentList().stream().anyMatch(temp -> Objects.nonNull(temp.getSectionTitle()));
 
-        ChunkSplitStrategy strategy = hasStructure && ragChunkProperties.getStructureAware()
+        ChunkSplitStrategy chunkSplitStrategy = hasStructure && ragChunkProperties.getStructureAware()
                 ? ChunkSplitStrategy.STRUCTURE_AWARE
                 : ChunkSplitStrategy.SLIDING_WINDOW;
 
-        return splitterMap.get(strategy);
+        return splitterMap.get(chunkSplitStrategy);
     }
 }

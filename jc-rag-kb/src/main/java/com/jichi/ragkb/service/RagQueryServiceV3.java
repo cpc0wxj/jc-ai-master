@@ -19,10 +19,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RagQueryServiceV3 {
     private final ChatClient chatClient;
-    private final EnhancedRetrieverService enhancedRetriever;
+    private final EnhancedRetrieverService enhancedRetrieverService;
 
     public String query(String question, List<Long> kbIds) {
-        List<HybridRetrieverService.ScoredChunk> scoredChunks = enhancedRetriever.retrieveWithHyde(question, kbIds, 5);
+        List<HybridRetrieverService.ScoredChunk> scoredChunks = enhancedRetrieverService.retrieveWithHyde(question, kbIds, 5);
 
         if (scoredChunks.isEmpty()) {
             return "在您选择的知识库中未找到与该问题相关的内容。";
@@ -58,12 +58,12 @@ public class RagQueryServiceV3 {
     private String buildContext(List<DocChunk> chunks) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < chunks.size(); i++) {
-            DocChunk chunk = chunks.get(i);
+            DocChunk docChunk = chunks.get(i);
             sb.append(String.format("[参考%d]", i + 1));
-            if (Objects.nonNull(chunk.getSectionTitle())) {
-                sb.append(" ").append(chunk.getSectionTitle());
+            if (Objects.nonNull(docChunk.getSectionTitle())) {
+                sb.append(" ").append(docChunk.getSectionTitle());
             }
-            sb.append("\n").append(chunk.getContent()).append("\n\n");
+            sb.append("\n").append(docChunk.getContent()).append("\n\n");
         }
         return sb.toString().strip();
     }

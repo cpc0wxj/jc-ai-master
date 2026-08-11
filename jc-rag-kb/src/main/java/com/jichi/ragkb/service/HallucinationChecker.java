@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 public class HallucinationChecker {
     private final ChatClient chatClient;
     private final TokenMetrics tokenMetrics;
-    private final ContextTrimmerService contextTrimmer;
+    private final ContextTrimmerService contextTrimmerService;
 
     /**
      * 幻觉检测结果
@@ -55,7 +55,7 @@ public class HallucinationChecker {
                     .call()
                     .content();
 
-            int genTokens = contextTrimmer.countTokens(response);
+            int genTokens = contextTrimmerService.countTokens(response);
             tokenMetrics.recordGenerationTokens(genTokens);
 
             return parseResult(response);

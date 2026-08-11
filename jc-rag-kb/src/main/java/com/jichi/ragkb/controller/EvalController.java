@@ -34,20 +34,17 @@ import java.util.Objects;
 @RequestMapping("/api/v1/eval")
 @RequiredArgsConstructor
 public class EvalController {
-
     private final EvalService evalService;
-    private final EvalDatasetRepository datasetRepository;
-    private final DocChunkRepository chunkRepository;
+    private final EvalDatasetRepository evalDatasetRepository;
+    private final DocChunkRepository docChunkRepository;
 
     /**
      * 触发评估（管理员专用）
      */
     @PostMapping("/{kbId}/run")
-    public ApiResponse<EvalReport> runEval(
-            @PathVariable Long kbId,
-            @RequestParam(defaultValue = "latest") String version) {
-        EvalReport report = evalService.runEvaluation(kbId, version);
-        return ApiResponse.ok(report);
+    public ApiResponse<EvalReport> runEval(@PathVariable Long kbId, @RequestParam(defaultValue = "latest") String version) {
+        EvalReport evalReport = evalService.runEvaluation(kbId, version);
+        return ApiResponse.ok(evalReport);
     }
 
     /**
@@ -65,24 +62,22 @@ public class EvalController {
      */
     @GetMapping("/{kbId}/dataset")
     public ApiResponse<List<EvalDataset>> listDataset(@PathVariable Long kbId) {
-        return ApiResponse.ok(datasetRepository.findByKbId(kbId));
+        return ApiResponse.ok(evalDatasetRepository.findByKbId(kbId));
     }
 
     /**
      * 新增评估问题
      */
     @PostMapping("/{kbId}/dataset")
-    public ApiResponse<EvalDataset> addQuestion(
-            @PathVariable Long kbId,
-            @RequestBody EvalDatasetRequest req) {
-        EvalDataset item = new EvalDataset()
+    public ApiResponse<EvalDataset> addQuestion(@PathVariable Long kbId, @RequestBody EvalDatasetRequest req) {
+        EvalDataset evalDataset = new EvalDataset()
                 .setKbId(kbId)
                 .setQuestion(req.getQuestion())
                 .setExpectedAnswer(req.getExpectedAnswer())
                 .setExpectedChunkIds(req.getExpectedChunkIds())
                 .setCreatedBy(UserContext.getUserId());
-        datasetRepository.save(item);
-        return ApiResponse.ok(item);
+        evalDatasetRepository.save(evalDataset);
+        return ApiResponse.ok(evalDataset);
     }
 
     /**
@@ -93,31 +88,29 @@ public class EvalController {
             @PathVariable Long kbId,
             @PathVariable Long id,
             @RequestBody EvalDatasetRequest req) {
-        EvalDataset item = datasetRepository.findById(id);
-        if (Objects.isNull(item)) {
+        EvalDataset evalDataset = evalDatasetRepository.findById(id);
+        if (Objects.isNull(evalDataset)) {
             throw new RuntimeException("评估数据不存在");
         }
         if (StringUtils.isNotBlank(req.getQuestion())) {
-            item.setQuestion(req.getQuestion());
+            evalDataset.setQuestion(req.getQuestion());
         }
         if (Objects.nonNull(req.getExpectedAnswer())) {
-            item.setExpectedAnswer(req.getExpectedAnswer());
+            evalDataset.setExpectedAnswer(req.getExpectedAnswer());
         }
         if (Objects.nonNull(req.getExpectedChunkIds())) {
-            item.setExpectedChunkIds(req.getExpectedChunkIds());
+            evalDataset.setExpectedChunkIds(req.getExpectedChunkIds());
         }
-        datasetRepository.updateById(item);
-        return ApiResponse.ok(item);
+        evalDatasetRepository.updateById(evalDataset);
+        return ApiResponse.ok(evalDataset);
     }
 
     /**
      * 删除评估问题
      */
     @DeleteMapping("/{kbId}/dataset/{id}")
-    public ApiResponse<Void> deleteQuestion(
-            @PathVariable Long kbId,
-            @PathVariable Long id) {
-        datasetRepository.deleteById(id);
+    public ApiResponse<Void> deleteQuestion(@PathVariable Long kbId, @PathVariable Long id) {
+        evalDatasetRepository.deleteById(id);
         return ApiResponse.ok(null);
     }
 
@@ -128,17 +121,17 @@ public class EvalController {
      */
     @GetMapping("/{kbId}/chunks")
     public ApiResponse<List<ChunkSummary>> listChunks(@PathVariable Long kbId) {
-        List<DocChunk> chunks = chunkRepository.findByKbId(kbId);
-        List<ChunkSummary> summaries = chunks.stream().map(c -> {
-            String content = c.getContent().length() > 200
-                    ? c.getContent().substring(0, 200) + "..."
-                    : c.getContent();
+        List<DocChunk> chunks = docChunkRepository.findByKbId(kbId);
+        List<ChunkSummary> summaries = chunks.stream().map(docChunk -> {
+            String content = docChunk.getContent().length() > 200
+                    ? docChunk.getContent().substring(0, 200) + "..."
+                    : docChunk.getContent();
             return new ChunkSummary()
-                    .setId(c.getId())
-                    .setDocId(c.getDocId())
-                    .setChunkIndex(c.getChunkIndex())
+                    .setId(docChunk.getId())
+                    .setDocId(docChunk.getDocId())
+                    .setChunkIndex(docChunk.getChunkIndex())
                     .setContent(content)
-                    .setTokenCount(c.getTokenCount());
+                    .setTokenCount(docChunk.getTokenCount());
         }).toList();
         return ApiResponse.ok(summaries);
     }

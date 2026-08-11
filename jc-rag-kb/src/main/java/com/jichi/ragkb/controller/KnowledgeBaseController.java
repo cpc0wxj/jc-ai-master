@@ -40,19 +40,18 @@ import java.util.Objects;
 @RequestMapping("/api/v1/kb")
 @RequiredArgsConstructor
 public class KnowledgeBaseController {
-
     private final PermissionService permissionService;
-    private final KnowledgeBaseService kbService;
-    private final KbDocumentRepository documentRepository;
-    private final IndexTaskRepository taskRepository;
-    private final MinioStorageService minioService;
+    private final KnowledgeBaseService knowledgeBaseService;
+    private final KbDocumentRepository kbDocumentRepository;
+    private final IndexTaskRepository indexTaskRepository;
+    private final MinioStorageService minioStorageService;
 
     /**
      * 查询当前用户可访问的知识库列表（含权限级别）
      */
     @GetMapping
     public ApiResponse<List<KnowledgeBaseVO>> list() {
-        return ApiResponse.ok(kbService.listAccessible());
+        return ApiResponse.ok(knowledgeBaseService.listAccessible());
     }
 
     /**
@@ -60,47 +59,43 @@ public class KnowledgeBaseController {
      */
     @PostMapping
     public ApiResponse<KnowledgeBase> create(@RequestBody KnowledgeBaseCreateRequest req) {
-        return ApiResponse.ok(kbService.create(req));
+        return ApiResponse.ok(knowledgeBaseService.create(req));
     }
 
     /**
      * 上传文档到知识库
      */
     @PostMapping("/{kbId}/documents")
-    public ApiResponse<DocumentUploadResponse> upload(
-            @PathVariable Long kbId,
-            @RequestParam("file") MultipartFile file) {
+    public ApiResponse<DocumentUploadResponse> upload(@PathVariable Long kbId, @RequestParam("file") MultipartFile file) {
         permissionService.requireWrite(kbId);
-        KbDocument doc = kbService.uploadDocument(kbId, file);
-        return ApiResponse.ok(DocumentUploadResponse.submitted(doc.getId(), doc.getFileName()));
+        KbDocument kbDocument = knowledgeBaseService.uploadDocument(kbId, file);
+        return ApiResponse.ok(DocumentUploadResponse.submitted(kbDocument.getId(), kbDocument.getFileName()));
     }
 
     /**
      * 查询文档索引状态（前端轮询用）
      */
     @GetMapping("/{kbId}/documents/{docId}/status")
-    public ApiResponse<IndexStatusResponse> getStatus(
-            @PathVariable Long kbId,
-            @PathVariable Long docId) {
+    public ApiResponse<IndexStatusResponse> getStatus(@PathVariable Long kbId, @PathVariable Long docId) {
         permissionService.requireRead(kbId);
 
-        KbDocument doc = documentRepository.findById(docId);
-        if (Objects.isNull(doc)) {
+        KbDocument kbDocument = kbDocumentRepository.findById(docId);
+        if (Objects.isNull(kbDocument)) {
             throw new RuntimeException("文档不存在");
         }
 
         // 查最新的索引任务（可能有重试）
-        IndexTask latestTask = taskRepository.findTopByDocIdOrderByCreatedAtDesc(docId);
+        IndexTask indexTask = indexTaskRepository.findTopByDocIdOrderByCreatedAtDesc(docId);
 
         IndexStatusResponse resp = new IndexStatusResponse()
-                .setDocId(doc.getId())
-                .setFileName(doc.getFileName())
-                .setStatus(doc.getStatus().name())
-                .setErrorMsg(doc.getErrorMsg())
-                .setChunkCount(doc.getChunkCount())
-                .setTokenCount(doc.getTokenCount())
-                .setIndexedAt(Objects.nonNull(doc.getIndexedAt()) ? doc.getIndexedAt().toString() : null)
-                .setRetryCount(Objects.nonNull(latestTask) ? latestTask.getRetryCount() : 0);
+                .setDocId(kbDocument.getId())
+                .setFileName(kbDocument.getFileName())
+                .setStatus(kbDocument.getStatus().name())
+                .setErrorMsg(kbDocument.getErrorMsg())
+                .setChunkCount(kbDocument.getChunkCount())
+                .setTokenCount(kbDocument.getTokenCount())
+                .setIndexedAt(Objects.nonNull(kbDocument.getIndexedAt()) ? kbDocument.getIndexedAt().toString() : null)
+                .setRetryCount(Objects.nonNull(indexTask) ? indexTask.getRetryCount() : 0);
         return ApiResponse.ok(resp);
     }
 
@@ -110,7 +105,7 @@ public class KnowledgeBaseController {
     @GetMapping("/{kbId}/documents")
     public ApiResponse<List<KbDocument>> listDocuments(@PathVariable Long kbId) {
         permissionService.requireRead(kbId);
-        List<KbDocument> docs = documentRepository.findByKbIdAndIsDeletedFalse(kbId);
+        List<KbDocument> docs = kbDocumentRepository.findByKbIdAndIsDeletedFalse(kbId);
         return ApiResponse.ok(docs);
     }
 
@@ -118,11 +113,9 @@ public class KnowledgeBaseController {
      * 删除文档
      */
     @DeleteMapping("/{kbId}/documents/{docId}")
-    public ApiResponse<Void> deleteDocument(
-            @PathVariable Long kbId,
-            @PathVariable Long docId) {
+    public ApiResponse<Void> deleteDocument(@PathVariable Long kbId, @PathVariable Long docId) {
         permissionService.requireWrite(kbId);
-        kbService.deleteDocument(docId);
+        knowledgeBaseService.deleteDocument(docId);
         return ApiResponse.ok(null);
     }
 
@@ -130,16 +123,14 @@ public class KnowledgeBaseController {
      * 下载原始文件
      */
     @GetMapping("/{kbId}/documents/{docId}/download")
-    public ResponseEntity<byte[]> download(
-            @PathVariable Long kbId,
-            @PathVariable Long docId) {
+    public ResponseEntity<byte[]> download(@PathVariable Long kbId, @PathVariable Long docId) {
         permissionService.requireRead(kbId);
-        KbDocument doc = documentRepository.findById(docId);
-        if (Objects.isNull(doc)) {
+        KbDocument kbDocument = kbDocumentRepository.findById(docId);
+        if (Objects.isNull(kbDocument)) {
             throw new RuntimeException("文档不存在");
         }
-        byte[] content = minioService.download(doc.getMinioPath());
-        String encodedName = URLEncoder.encode(doc.getFileName(), StandardCharsets.UTF_8)
+        byte[] content = minioStorageService.download(kbDocument.getMinioPath());
+        String encodedName = URLEncoder.encode(kbDocument.getFileName(), StandardCharsets.UTF_8)
                 .replace("+", "%20");
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -152,11 +143,9 @@ public class KnowledgeBaseController {
      * 重建索引（文档内容更新后触发）
      */
     @PostMapping("/{kbId}/documents/{docId}/reindex")
-    public ApiResponse<String> reindex(
-            @PathVariable Long kbId,
-            @PathVariable Long docId) {
+    public ApiResponse<String> reindex(@PathVariable Long kbId, @PathVariable Long docId) {
         permissionService.requireWrite(kbId);
-        kbService.reindex(docId);
+        knowledgeBaseService.reindex(docId);
         return ApiResponse.ok("重建索引任务已提交，请通过 /status 接口查询进度");
     }
 }

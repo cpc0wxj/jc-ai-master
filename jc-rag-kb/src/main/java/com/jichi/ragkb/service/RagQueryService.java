@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 public class RagQueryService {
     private final ChatClient chatClient;
     private final EmbeddingService embeddingService;
-    private final DocChunkRepository chunkRepository;
+    private final DocChunkRepository docChunkRepository;
     private final RagRetrievalProperties ragRetrievalProperties;
 
     /**
@@ -54,7 +54,7 @@ public class RagQueryService {
         String embeddingStr = toVectorString(queryEmbedding);
 
         List<DocChunk> allChunks = kbIds.stream()
-                .flatMap(kbId -> chunkRepository.findByVectorSimilarity(kbId, embeddingStr, topK).stream())
+                .flatMap(kbId -> docChunkRepository.findByVectorSimilarity(kbId, embeddingStr, topK).stream())
                 .collect(Collectors.toList());
 
         if (allChunks.size() > topK) {
@@ -103,12 +103,12 @@ public class RagQueryService {
     private String buildContext(List<DocChunk> chunks) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < chunks.size(); i++) {
-            DocChunk chunk = chunks.get(i);
+            DocChunk docChunk = chunks.get(i);
             sb.append(String.format("[参考%d]", i + 1));
-            if (Objects.nonNull(chunk.getSectionTitle())) {
-                sb.append(" ").append(chunk.getSectionTitle());
+            if (Objects.nonNull(docChunk.getSectionTitle())) {
+                sb.append(" ").append(docChunk.getSectionTitle());
             }
-            sb.append("\n").append(chunk.getContent()).append("\n\n");
+            sb.append("\n").append(docChunk.getContent()).append("\n\n");
         }
         return sb.toString().strip();
     }

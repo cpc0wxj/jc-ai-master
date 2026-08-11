@@ -29,10 +29,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class HybridRetrieverService {
     private final EmbeddingService embeddingService;
-    private final DocChunkRepository chunkRepository;
+    private final DocChunkRepository docChunkRepository;
     private final TsQueryBuilder tsQueryBuilder;
-    private final KnowledgeBaseRepository kbRepository;
-    private final KbPermissionRepository permissionRepository;
+    private final KnowledgeBaseRepository knowledgeBaseRepository;
+    private final KbPermissionRepository kbPermissionRepository;
     private final RagRetrievalProperties ragRetrievalProperties;
 
     /** RRF 平滑参数，通常取 60 */
@@ -55,7 +55,7 @@ public class HybridRetrieverService {
         String embeddingStr = toVectorString(queryEmbedding);
 
         List<DocChunk> vectorResults = kbIds.stream()
-                .flatMap(kbId -> chunkRepository.findByVectorSimilarity(kbId, embeddingStr, vectorTopK).stream())
+                .flatMap(kbId -> docChunkRepository.findByVectorSimilarity(kbId, embeddingStr, vectorTopK).stream())
                 .collect(Collectors.toList());
 
         // Step 2：全文检索
@@ -63,7 +63,7 @@ public class HybridRetrieverService {
         List<DocChunk> fulltextResults = Lists.newArrayList();
         if (Objects.nonNull(tsQuery)) {
             fulltextResults = kbIds.stream()
-                    .flatMap(kbId -> chunkRepository.findByFullTextSearch(kbId, tsQuery, fulltextTopK).stream())
+                    .flatMap(kbId -> docChunkRepository.findByFullTextSearch(kbId, tsQuery, fulltextTopK).stream())
                     .collect(Collectors.toList());
         }
 
@@ -116,16 +116,14 @@ public class HybridRetrieverService {
 
         return kbIds.stream()
                 .filter(kbId -> {
-                    KnowledgeBase kb = kbRepository.findById(kbId);
-                    boolean isPublic = Objects.nonNull(kb) && Boolean.TRUE.equals(kb.getIsPublic());
+                    KnowledgeBase knowledgeBase = knowledgeBaseRepository.findById(kbId);
+                    boolean isPublic = Objects.nonNull(knowledgeBase) && Boolean.TRUE.equals(knowledgeBase.getIsPublic());
                     if (isPublic) {
                         return true;
                     }
 
-                    return permissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(
-                            kbId, "USER", userId)
-                            || permissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(
-                            kbId, "DEPARTMENT", deptId);
+                    return kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(kbId, "USER", userId)
+                            || kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(kbId, "DEPARTMENT", deptId);
                 })
                 .toList();
     }
@@ -141,18 +139,18 @@ public class HybridRetrieverService {
 
         // 向量检索结果计分
         for (int rank = 0; rank < vectorList.size(); rank++) {
-            DocChunk chunk = vectorList.get(rank);
+            DocChunk docChunk = vectorList.get(rank);
             double rrfScore = 1.0 / (RRF_K + rank + 1);
-            scoreMap.merge(chunk.getId(), rrfScore, Double::sum);
-            chunkMap.put(chunk.getId(), chunk);
+            scoreMap.merge(docChunk.getId(), rrfScore, Double::sum);
+            chunkMap.put(docChunk.getId(), docChunk);
         }
 
         // 全文检索结果计分（累加）
         for (int rank = 0; rank < fulltextList.size(); rank++) {
-            DocChunk chunk = fulltextList.get(rank);
+            DocChunk docChunk = fulltextList.get(rank);
             double rrfScore = 1.0 / (RRF_K + rank + 1);
-            scoreMap.merge(chunk.getId(), rrfScore, Double::sum);
-            chunkMap.put(chunk.getId(), chunk);
+            scoreMap.merge(docChunk.getId(), rrfScore, Double::sum);
+            chunkMap.put(docChunk.getId(), docChunk);
         }
 
         // 按 RRF 分数降序排列

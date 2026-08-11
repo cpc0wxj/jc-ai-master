@@ -30,14 +30,13 @@ import java.util.concurrent.Executors;
  * 对话接口
  * 提供流式 SSE 问答、同步问答、会话列表和消息历史查询
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
-@Slf4j
 public class ChatController {
-
     private final StreamingRagService streamingRagService;
-    private final ChatSessionService sessionService;
+    private final ChatSessionService chatSessionService;
     private final PermissionService permissionService;
 
     // 专用线程池处理 SSE 推送（避免占用 Tomcat 线程池）
@@ -65,7 +64,7 @@ public class ChatController {
         kbIds.forEach(permissionService::requireRead);
 
         // 创建或获取会话
-        String sid = sessionService.getOrCreateSession(sessionId, kbIds);
+        String sid = chatSessionService.getOrCreateSession(sessionId, kbIds);
 
         SseEmitter emitter = new SseEmitter(60_000L);
 
@@ -101,7 +100,7 @@ public class ChatController {
     @PostMapping
     public RagResponse syncChat(@RequestBody ChatRequest request) {
         request.getKbIds().forEach(permissionService::requireRead);
-        String sid = sessionService.getOrCreateSession(request.getSessionId(), request.getKbIds());
+        String sid = chatSessionService.getOrCreateSession(request.getSessionId(), request.getKbIds());
         return streamingRagService.syncQuery(request.getQuestion(), request.getKbIds(), sid);
     }
 
@@ -110,7 +109,7 @@ public class ChatController {
      */
     @GetMapping("/sessions")
     public ApiResponse<List<ChatSession>> listSessions() {
-        List<ChatSession> sessions = sessionService.listUserSessions(UserContext.getUserId());
+        List<ChatSession> sessions = chatSessionService.listUserSessions(UserContext.getUserId());
         return ApiResponse.ok(sessions);
     }
 
@@ -119,6 +118,6 @@ public class ChatController {
      */
     @GetMapping("/sessions/{sessionId}/messages")
     public ApiResponse<List<ChatMessage>> getMessages(@PathVariable String sessionId) {
-        return ApiResponse.ok(sessionService.getSessionMessages(sessionId));
+        return ApiResponse.ok(chatSessionService.getSessionMessages(sessionId));
     }
 }

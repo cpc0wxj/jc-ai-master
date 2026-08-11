@@ -25,8 +25,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ChatSessionService {
-    private final ChatSessionRepository sessionRepository;
-    private final ChatMessageRepository messageRepository;
+    private final ChatSessionRepository chatSessionRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final ObjectMapper objectMapper;
 
     /** 最多保留的历史轮数（超出后截断旧消息） */
@@ -38,10 +38,10 @@ public class ChatSessionService {
     @Transactional
     public String getOrCreateSession(String sessionId, List<Long> kbIds) {
         if (StringUtils.isNotBlank(sessionId)) {
-            ChatSession existing = sessionRepository.findById(sessionId);
-            if (Objects.nonNull(existing)) {
-                existing.setLastActiveAt(LocalDateTime.now());
-                sessionRepository.updateById(existing);
+            ChatSession chatSession = chatSessionRepository.findById(sessionId);
+            if (Objects.nonNull(chatSession)) {
+                chatSession.setLastActiveAt(LocalDateTime.now());
+                chatSessionRepository.updateById(chatSession);
             }
             return sessionId;
         }
@@ -52,7 +52,7 @@ public class ChatSessionService {
                 .setUserId(UserContext.getUserId())
                 .setKbIds(kbIds.toString())
                 .setMessageCount(0);
-        sessionRepository.save(session);
+        chatSessionRepository.save(session);
 
         log.info("ChatSessionService.getOrCreateSession sessionId={},userId={}", session.getId(), UserContext.getUserId());
         return session.getId();
@@ -69,7 +69,7 @@ public class ChatSessionService {
                 .setSessionId(sessionId)
                 .setRole("USER")
                 .setContent(question);
-        messageRepository.save(userMsg);
+        chatMessageRepository.save(userMsg);
 
         // 保存助手回答
         ChatMessage assistantMsg = new ChatMessage()
@@ -78,17 +78,17 @@ public class ChatSessionService {
                 .setContent(answer)
                 .setSources(sourcesJson)
                 .setLatencyMs(latencyMs);
-        messageRepository.save(assistantMsg);
+        chatMessageRepository.save(assistantMsg);
 
         // 更新会话消息数和活跃时间
-        ChatSession session = sessionRepository.findById(sessionId);
-        if (Objects.nonNull(session)) {
-            session.setMessageCount(session.getMessageCount() + 2);
-            session.setLastActiveAt(LocalDateTime.now());
-            if (Objects.isNull(session.getTitle()) && question.length() > 0) {
-                session.setTitle(question.substring(0, Math.min(50, question.length())));
+        ChatSession chatSession = chatSessionRepository.findById(sessionId);
+        if (Objects.nonNull(chatSession)) {
+            chatSession.setMessageCount(chatSession.getMessageCount() + 2);
+            chatSession.setLastActiveAt(LocalDateTime.now());
+            if (Objects.isNull(chatSession.getTitle()) && question.length() > 0) {
+                chatSession.setTitle(question.substring(0, Math.min(50, question.length())));
             }
-            sessionRepository.updateById(session);
+            chatSessionRepository.updateById(chatSession);
         }
     }
 
@@ -97,7 +97,7 @@ public class ChatSessionService {
      * 最近 MAX_HISTORY_ROUNDS 轮，不含当前问题
      */
     public List<ChatMessage> getHistory(String sessionId) {
-        List<ChatMessage> all = messageRepository
+        List<ChatMessage> all = chatMessageRepository
                 .findBySessionIdOrderByCreatedAtAsc(sessionId);
 
         // 取最近的 N 轮（N * 2 条消息：用户 + 助手）
@@ -112,13 +112,13 @@ public class ChatSessionService {
      * 获取当前用户的会话列表（按最近活跃时间倒序）
      */
     public List<ChatSession> listUserSessions(Long userId) {
-        return sessionRepository.findByUserIdAndIsDeletedFalseOrderByLastActiveAtDesc(userId);
+        return chatSessionRepository.findByUserIdAndIsDeletedFalseOrderByLastActiveAtDesc(userId);
     }
 
     /**
      * 获取指定会话的全部消息列表（按创建时间升序）
      */
     public List<ChatMessage> getSessionMessages(String sessionId) {
-        return messageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        return chatMessageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
     }
 }

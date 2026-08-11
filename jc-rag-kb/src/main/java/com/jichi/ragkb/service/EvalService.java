@@ -26,12 +26,12 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class EvalService {
-    private final EvalDatasetRepository datasetRepository;
-    private final EvalResultRepository resultRepository;
-    private final EnhancedRetrieverService retriever;
+    private final EvalDatasetRepository evalDatasetRepository;
+    private final EvalResultRepository evalResultRepository;
+    private final EnhancedRetrieverService enhancedRetrieverService;
     private final RerankerService rerankerService;
     private final HallucinationChecker hallucinationChecker;
-    private final StreamingRagService ragService;
+    private final StreamingRagService streamingRagService;
 
     /**
      * 运行完整评估流水线
@@ -41,7 +41,7 @@ public class EvalService {
      * @return 评估摘要报告
      */
     public EvalReport runEvaluation(Long kbId, String evalVersion) {
-        List<EvalDataset> questions = datasetRepository.findByKbId(kbId);
+        List<EvalDataset> questions = evalDatasetRepository.findByKbId(kbId);
         if (questions.isEmpty()) {
             throw new RuntimeException("知识库 " + kbId + " 没有评估数据集，请先录入标准问题");
         }
@@ -76,13 +76,13 @@ public class EvalService {
         }
 
         // 批量保存评估结果
-        resultRepository.saveBatch(results);
+        evalResultRepository.saveBatch(results);
 
         double hitRate = questions.isEmpty() ? 0 : (double) hits / questions.size();
         double mrrScore = questions.isEmpty() ? 0 : mrr / questions.size();
         double avgFaithfulness = evalCount == 0 ? 0 : totalFaithfulness / evalCount;
 
-        EvalReport report = new EvalReport()
+        EvalReport evalReport = new EvalReport()
                 .setKbId(kbId)
                 .setEvalVersion(evalVersion)
                 .setTotalQuestions(questions.size())
@@ -97,13 +97,13 @@ public class EvalService {
                 String.format("%.4f", mrrScore),
                 String.format("%.4f", avgFaithfulness));
 
-        return report;
+        return evalReport;
     }
 
     private EvalResult evaluateOne(EvalDataset question, Long kbId, String evalVersion) {
         // 执行检索
         List<HybridRetrieverService.ScoredChunk> candidates =
-                retriever.retrieveWithHyde(question.getQuestion(), List.of(kbId), 20);
+                enhancedRetrieverService.retrieveWithHyde(question.getQuestion(), List.of(kbId), 20);
         List<HybridRetrieverService.ScoredChunk> reranked =
                 rerankerService.rerank(question.getQuestion(), candidates, 10);
 
@@ -131,7 +131,7 @@ public class EvalService {
             // 每题用一次性会话 ID：syncQuery 会注入会话历史，
             // 复用同一个会话会把前一题的问答当历史带进来，污染评估结果
             String evalSessionId = "eval-" + UUID.randomUUID();
-            RagResponse response = ragService.syncQuery(
+            RagResponse response = streamingRagService.syncQuery(
                     question.getQuestion(), List.of(kbId), evalSessionId);
             actualAnswer = response.getAnswer();
 
@@ -141,9 +141,9 @@ public class EvalService {
                     .map(HybridRetrieverService.ScoredChunk::content)
                     .collect(Collectors.joining("\n\n"));
 
-            HallucinationChecker.FaithfulnessResult faithResult =
+            HallucinationChecker.FaithfulnessResult faithfulnessResult =
                     hallucinationChecker.check(question.getQuestion(), actualAnswer, context);
-            faithfulness = faithResult.score();
+            faithfulness = faithfulnessResult.score();
         }
 
         return new EvalResult()
@@ -160,6 +160,6 @@ public class EvalService {
      * 对比不同评估版本的指标，生成对比报告
      */
     public List<EvalReport> compareVersions(Long kbId) {
-        return resultRepository.aggregateByVersion(kbId);
+        return evalResultRepository.aggregateByVersion(kbId);
     }
 }

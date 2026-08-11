@@ -53,16 +53,16 @@ public class DocumentParseManager implements BeanPostProcessor {
 
         long start = System.currentTimeMillis();
         log.info("DocumentParseManager.load 开始解析文档 fileName={},supportedFileType={}", fileName, documentParseHandler.getSupportedFileType());
-        ParseResult result = documentParseHandler.parse(fileName, inputStream);
+        ParseResult parseResult = documentParseHandler.parse(fileName, inputStream);
         long elapsed = System.currentTimeMillis() - start;
 
-        if (result.getSuccess()) {
-            log.info("DocumentParseManager.load 文档解析完成 fileName={},totalPageNum={},elapsed={}", fileName, result.getTotalPageNum(), elapsed);
+        if (parseResult.getSuccess()) {
+            log.info("DocumentParseManager.load 文档解析完成 fileName={},totalPageNum={},elapsed={}", fileName, parseResult.getTotalPageNum(), elapsed);
         } else {
-            log.warn("DocumentParseManager.load 文档解析失败 fileName={},errorMsg={}", fileName, result.getErrorMsg());
+            log.warn("DocumentParseManager.load 文档解析失败 fileName={},errorMsg={}", fileName, parseResult.getErrorMsg());
         }
 
-        return result;
+        return parseResult;
     }
 
     /**

@@ -25,12 +25,12 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class StreamingRagService {
-    private final EnhancedRetrieverService enhancedRetriever;
+    private final EnhancedRetrieverService enhancedRetrieverService;
     private final RerankerService rerankerService;
     private final ConfidenceFilter confidenceFilter;
-    private final ContextTrimmerService contextTrimmer;
+    private final ContextTrimmerService contextTrimmerService;
     private final SourceBuilder sourceBuilder;
-    private final ChatSessionService sessionService;
+    private final ChatSessionService chatSessionService;
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
     private final TokenMetrics tokenMetrics;
@@ -56,8 +56,7 @@ public class StreamingRagService {
                         new DonePayload(cached.getSources(), 0));
                 emitter.send(SseEmitter.event().name("done").data(doneData));
                 emitter.complete();
-                sessionService.saveMessage(sessionId, question, cached.getAnswer(),
-                        sourceBuilder.sourcesToJson(cached.getSources()), 0);
+                chatSessionService.saveMessage(sessionId, question, cached.getAnswer(), sourceBuilder.sourcesToJson(cached.getSources()), 0);
                 return;
             }
 
@@ -66,7 +65,7 @@ public class StreamingRagService {
                     .name("status")
                     .data("{\"type\":\"RETRIEVING\",\"message\":\"正在检索知识库...\"}"));
 
-            var candidates = enhancedRetriever.retrieveWithHyde(question, kbIds, 20);
+            var candidates = enhancedRetrieverService.retrieveWithHyde(question, kbIds, 20);
             var reranked = rerankerService.rerank(question, candidates, rerankerProperties.getTopN());
             var filtered = confidenceFilter.filter(reranked);
 
@@ -75,7 +74,7 @@ public class StreamingRagService {
                 return;
             }
 
-            var trimmed = contextTrimmer.trim(filtered);
+            var trimmed = contextTrimmerService.trim(filtered);
 
             emitter.send(SseEmitter.event()
                     .name("status")
@@ -104,13 +103,13 @@ public class StreamingRagService {
                     .blockLast();
 
             String answer = fullAnswer.toString();
-            tokenMetrics.recordGenerationTokens(contextTrimmer.countTokens(answer));
+            tokenMetrics.recordGenerationTokens(contextTrimmerService.countTokens(answer));
 
             List<RagResponse.Source> sources = sourceBuilder.buildSources(answer, trimmed);
             String sourcesJson = sourceBuilder.sourcesToJson(sources);
             int latencyMs = (int) (System.currentTimeMillis() - start);
 
-            sessionService.saveMessage(sessionId, question, answer, sourcesJson, latencyMs);
+            chatSessionService.saveMessage(sessionId, question, answer, sourcesJson, latencyMs);
 
             // 只有首轮（无历史）才写缓存
             if (cacheable) {
@@ -148,15 +147,14 @@ public class StreamingRagService {
         // 先查缓存（仅首轮）
         RagResponse cached = cacheable ? queryCacheService.getFromCache(question, kbIds) : null;
         if (Objects.nonNull(cached)) {
-            sessionService.saveMessage(sessionId, question, cached.getAnswer(),
-                    sourceBuilder.sourcesToJson(cached.getSources()), 0);
+            chatSessionService.saveMessage(sessionId, question, cached.getAnswer(), sourceBuilder.sourcesToJson(cached.getSources()), 0);
             return cached;
         }
 
         // 缓存未命中，走完整 RAG 管道
         long start = System.currentTimeMillis();
 
-        var candidates = enhancedRetriever.retrieveWithHyde(question, kbIds, 20);
+        var candidates = enhancedRetrieverService.retrieveWithHyde(question, kbIds, 20);
         var reranked = rerankerService.rerank(question, candidates, rerankerProperties.getTopN());
         var filtered = confidenceFilter.filter(reranked);
 
@@ -164,7 +162,7 @@ public class StreamingRagService {
             return RagResponse.notFound();
         }
 
-        var trimmed = contextTrimmer.trim(filtered);
+        var trimmed = contextTrimmerService.trim(filtered);
         String context = buildContext(trimmed);
         String systemPrompt = RagPromptTemplate.buildSystemPrompt(context, trimmed.size());
 
@@ -175,13 +173,13 @@ public class StreamingRagService {
                 .call()
                 .content();
 
-        tokenMetrics.recordGenerationTokens(contextTrimmer.countTokens(answer));
+        tokenMetrics.recordGenerationTokens(contextTrimmerService.countTokens(answer));
 
         List<RagResponse.Source> sources = sourceBuilder.buildSources(answer, trimmed);
         String sourcesJson = sourceBuilder.sourcesToJson(sources);
         int latencyMs = (int) (System.currentTimeMillis() - start);
 
-        sessionService.saveMessage(sessionId, question, answer, sourcesJson, latencyMs);
+        chatSessionService.saveMessage(sessionId, question, answer, sourcesJson, latencyMs);
 
         RagResponse response = new RagResponse()
                 .setAnswer(answer)
@@ -199,7 +197,7 @@ public class StreamingRagService {
      * 把会话历史转成 Spring AI 的消息列表，喂给模型做多轮上下文
      */
     private List<Message> loadHistoryMessages(String sessionId) {
-        return sessionService.getHistory(sessionId).stream()
+        return chatSessionService.getHistory(sessionId).stream()
                 .map(m -> "USER".equals(m.getRole())
                         ? (Message) new UserMessage(m.getContent())
                         : (Message) new AssistantMessage(m.getContent()))

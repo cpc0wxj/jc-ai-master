@@ -18,9 +18,9 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class PermissionService {
-    private final KbPermissionRepository permissionRepository;
+    private final KbPermissionRepository kbPermissionRepository;
 
-    private final KnowledgeBaseRepository kbRepository;
+    private final KnowledgeBaseRepository knowledgeBaseRepository;
 
     /**
      * 检查当前用户对知识库是否有读权限
@@ -31,8 +31,8 @@ public class PermissionService {
         }
 
         // 知识库是公开的——直接放行
-        KnowledgeBase kb = kbRepository.findById(kbId);
-        boolean isPublic = Objects.nonNull(kb) && Boolean.TRUE.equals(kb.getIsPublic());
+        KnowledgeBase knowledgeBase = knowledgeBaseRepository.findById(kbId);
+        boolean isPublic = Objects.nonNull(knowledgeBase) && Boolean.TRUE.equals(knowledgeBase.getIsPublic());
         if (isPublic) {
             return;
         }
@@ -41,9 +41,9 @@ public class PermissionService {
         String userId = String.valueOf(UserContext.getUserId());
         String deptId = UserContext.getDepartmentId();
 
-        boolean hasPermission = permissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(
+        boolean hasPermission = kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(
                 kbId, "USER", userId)
-                || permissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(
+                || kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(
                 kbId, "DEPARTMENT", deptId);
 
         if (!hasPermission) {
@@ -62,10 +62,10 @@ public class PermissionService {
         String userId = String.valueOf(UserContext.getUserId());
         String deptId = UserContext.getDepartmentId();
 
-        boolean hasWritePermission = permissionRepository
+        boolean hasWritePermission = kbPermissionRepository
                 .existsByKbIdAndSubjectTypeAndSubjectIdAndPermissionIn(
                         kbId, "USER", userId, List.of("WRITE", "ADMIN"))
-                || permissionRepository
+                || kbPermissionRepository
                 .existsByKbIdAndSubjectTypeAndSubjectIdAndPermissionIn(
                         kbId, "DEPARTMENT", deptId, List.of("WRITE", "ADMIN"));
 

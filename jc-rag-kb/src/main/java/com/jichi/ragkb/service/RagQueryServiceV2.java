@@ -19,16 +19,15 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class RagQueryServiceV2 {
-    private final HybridRetrieverService hybridRetriever;
     private final ChatClient chatClient;
+    private final HybridRetrieverService hybridRetrieverService;
     private final RagRetrievalProperties ragRetrievalProperties;
 
     public String query(String question, List<Long> kbIds) {
         int returnTopN = ragRetrievalProperties.getReturnTopN();
 
         // Step 1：混合检索
-        List<HybridRetrieverService.ScoredChunk> scoredChunks =
-                hybridRetriever.retrieve(question, kbIds, returnTopN);
+        List<HybridRetrieverService.ScoredChunk> scoredChunks = hybridRetrieverService.retrieve(question, kbIds, returnTopN);
 
         if (scoredChunks.isEmpty()) {
             return buildNotFoundResponse();
@@ -56,12 +55,12 @@ public class RagQueryServiceV2 {
     private String buildContext(List<DocChunk> chunks) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < chunks.size(); i++) {
-            DocChunk c = chunks.get(i);
+            DocChunk docChunk = chunks.get(i);
             sb.append("[参考").append(i + 1).append("]");
-            if (Objects.nonNull(c.getSectionTitle())) {
-                sb.append(" ").append(c.getSectionTitle());
+            if (Objects.nonNull(docChunk.getSectionTitle())) {
+                sb.append(" ").append(docChunk.getSectionTitle());
             }
-            sb.append("\n").append(c.getContent()).append("\n\n");
+            sb.append("\n").append(docChunk.getContent()).append("\n\n");
         }
         return sb.toString().strip();
     }

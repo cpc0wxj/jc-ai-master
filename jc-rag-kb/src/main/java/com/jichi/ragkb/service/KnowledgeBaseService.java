@@ -31,34 +31,34 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class KnowledgeBaseService {
-    private final KnowledgeBaseRepository kbRepository;
-    private final KbPermissionRepository permissionRepository;
-    private final KbDocumentRepository documentRepository;
-    private final DocChunkRepository chunkRepository;
-    private final MinioStorageService minioService;
+    private final KnowledgeBaseRepository knowledgeBaseRepository;
+    private final KbPermissionRepository kbPermissionRepository;
+    private final KbDocumentRepository kbDocumentRepository;
+    private final DocChunkRepository docChunkRepository;
+    private final MinioStorageService minioStorageService;
     private final IndexService indexService;
 
     @Transactional
     public KnowledgeBase create(KnowledgeBaseCreateRequest req) {
-        KnowledgeBase kb = new KnowledgeBase()
+        KnowledgeBase knowledgeBase = new KnowledgeBase()
                 .setName(req.getName())
                 .setDescription(req.getDescription())
                 .setDepartmentId(req.getDepartmentId())
                 .setIsPublic(req.getIsPublic())
                 .setCreatedBy(UserContext.getUserId());
-        kbRepository.save(kb);
+        knowledgeBaseRepository.save(knowledgeBase);
 
         // 创建者自动获得 ADMIN 权限
-        KbPermission perm = new KbPermission()
-                .setKbId(kb.getId())
+        KbPermission kbPermission = new KbPermission()
+                .setKbId(knowledgeBase.getId())
                 .setSubjectType("USER")
                 .setSubjectId(String.valueOf(UserContext.getUserId()))
                 .setPermission("ADMIN")
                 .setGrantedBy(UserContext.getUserId());
-        permissionRepository.save(perm);
+        kbPermissionRepository.save(kbPermission);
 
-        log.info("KnowledgeBaseService.create id={},name={},creator={}", kb.getId(), kb.getName(), UserContext.getUserId());
-        return kb;
+        log.info("KnowledgeBaseService.create id={},name={},creator={}", knowledgeBase.getId(), knowledgeBase.getName(), UserContext.getUserId());
+        return knowledgeBase;
     }
 
     /**
@@ -70,33 +70,33 @@ public class KnowledgeBaseService {
         String userId = String.valueOf(UserContext.getUserId());
 
         if ("ADMIN".equalsIgnoreCase(role)) {
-            List<KnowledgeBase> kbList = kbRepository.findByIsDeletedFalse();
-            return kbList.stream().map(kb -> toVO(kb, "ADMIN")).toList();
+            List<KnowledgeBase> knowledgeBaseList = knowledgeBaseRepository.findByIsDeletedFalse();
+            return knowledgeBaseList.stream().map(knowledgeBase -> toVO(knowledgeBase, "ADMIN")).toList();
         }
 
         // 收集用户/部门的权限映射：kbId -> 最高权限
         Map<Long, String> permMap = new HashMap<>();
 
-        permissionRepository.findBySubjectTypeAndSubjectId("DEPARTMENT", dept)
-                .forEach(p -> permMap.merge(p.getKbId(), p.getPermission(), this::higherPermission));
+        kbPermissionRepository.findBySubjectTypeAndSubjectId("DEPARTMENT", dept)
+                .forEach(kbPermission -> permMap.merge(kbPermission.getKbId(), kbPermission.getPermission(), this::higherPermission));
 
-        permissionRepository.findBySubjectTypeAndSubjectId("USER", userId)
-                .forEach(p -> permMap.merge(p.getKbId(), p.getPermission(), this::higherPermission));
+        kbPermissionRepository.findBySubjectTypeAndSubjectId("USER", userId)
+                .forEach(kbPermission -> permMap.merge(kbPermission.getKbId(), kbPermission.getPermission(), this::higherPermission));
 
         // 公开库：没有显式权限的给 READ
         Set<Long> accessibleIds = new HashSet<>(permMap.keySet());
-        kbRepository.findByIsPublicTrueAndIsDeletedFalse().forEach(kb -> {
-            accessibleIds.add(kb.getId());
-            permMap.putIfAbsent(kb.getId(), "READ");
+        knowledgeBaseRepository.findByIsPublicTrueAndIsDeletedFalse().forEach(knowledgeBase -> {
+            accessibleIds.add(knowledgeBase.getId());
+            permMap.putIfAbsent(knowledgeBase.getId(), "READ");
         });
 
         if (accessibleIds.isEmpty()) {
             return List.of();
         }
 
-        return kbRepository.findAllById(accessibleIds).stream()
-                .filter(kb -> !kb.getIsDeleted())
-                .map(kb -> toVO(kb, permMap.getOrDefault(kb.getId(), "READ")))
+        return knowledgeBaseRepository.findAllById(accessibleIds).stream()
+                .filter(knowledgeBase -> !knowledgeBase.getIsDeleted())
+                .map(knowledgeBase -> toVO(knowledgeBase, permMap.getOrDefault(knowledgeBase.getId(), "READ")))
                 .toList();
     }
 
@@ -111,23 +111,23 @@ public class KnowledgeBaseService {
         validateFileType(fileName);
 
         // 上传到 MinIO
-        String minioPath = minioService.upload(kbId, file);
+        String minioPath = minioStorageService.upload(kbId, file);
 
         // 创建文档记录
-        KbDocument doc = new KbDocument()
+        KbDocument kbDocument = new KbDocument()
                 .setKbId(kbId)
                 .setFileName(fileName)
                 .setFileType(detectFileType(fileName))
                 .setFileSize(file.getSize())
                 .setMinioPath(minioPath)
                 .setUploadedBy(UserContext.getUserId());
-        documentRepository.save(doc);
+        kbDocumentRepository.save(kbDocument);
 
         // 异步提交索引任务
-        indexService.submitIndexTask(doc.getId());
+        indexService.submitIndexTask(kbDocument.getId());
 
-        log.info("KnowledgeBaseService.uploadDocument docId={},fileName={},kbId={}", doc.getId(), fileName, kbId);
-        return doc;
+        log.info("KnowledgeBaseService.uploadDocument docId={},fileName={},kbId={}", kbDocument.getId(), fileName, kbId);
+        return kbDocument;
     }
 
     /**
@@ -135,22 +135,22 @@ public class KnowledgeBaseService {
      */
     @Transactional
     public void deleteDocument(Long docId) {
-        KbDocument doc = documentRepository.findById(docId);
-        if (Objects.isNull(doc)) {
+        KbDocument kbDocument = kbDocumentRepository.findById(docId);
+        if (Objects.isNull(kbDocument)) {
             throw new RuntimeException("文档不存在：" + docId);
         }
 
         // 软删除文档记录
-        doc.setIsDeleted(true);
-        documentRepository.updateById(doc);
+        kbDocument.setIsDeleted(true);
+        kbDocumentRepository.updateById(kbDocument);
 
         // 硬删除向量数据（向量数据不做软删除，占空间且不需要恢复）
-        chunkRepository.deleteByDocId(docId);
+        docChunkRepository.deleteByDocId(docId);
 
         // 异步删除 MinIO 文件（不影响主流程）
-        minioService.delete(doc.getMinioPath());
+        minioStorageService.delete(kbDocument.getMinioPath());
 
-        log.info("KnowledgeBaseService.deleteDocument docId={},fileName={}", docId, doc.getFileName());
+        log.info("KnowledgeBaseService.deleteDocument docId={},fileName={}", docId, kbDocument.getFileName());
     }
 
     /**
@@ -158,30 +158,30 @@ public class KnowledgeBaseService {
      */
     @Transactional
     public void reindex(Long docId) {
-        KbDocument doc = documentRepository.findById(docId);
-        if (Objects.isNull(doc)) {
+        KbDocument kbDocument = kbDocumentRepository.findById(docId);
+        if (Objects.isNull(kbDocument)) {
             throw new RuntimeException("文档不存在：" + docId);
         }
 
         // 版本号递增，索引完成后旧版本分块会被清理
-        doc.setVersion(doc.getVersion() + 1)
+        kbDocument.setVersion(kbDocument.getVersion() + 1)
                 .setStatus(KbDocument.DocumentStatus.PENDING)
                 .setErrorMsg(null);
-        documentRepository.updateById(doc);
+        kbDocumentRepository.updateById(kbDocument);
 
         indexService.submitIndexTask(docId);
-        log.info("KnowledgeBaseService.reindex docId={},newVersion={}", docId, doc.getVersion());
+        log.info("KnowledgeBaseService.reindex docId={},newVersion={}", docId, kbDocument.getVersion());
     }
 
-    private KnowledgeBaseVO toVO(KnowledgeBase kb, String permission) {
+    private KnowledgeBaseVO toVO(KnowledgeBase knowledgeBase, String permission) {
         return new KnowledgeBaseVO()
-                .setId(kb.getId())
-                .setName(kb.getName())
-                .setDescription(kb.getDescription())
-                .setDepartmentId(kb.getDepartmentId())
-                .setIsPublic(kb.getIsPublic())
-                .setCreatedBy(kb.getCreatedBy())
-                .setCreatedAt(kb.getCreatedAt())
+                .setId(knowledgeBase.getId())
+                .setName(knowledgeBase.getName())
+                .setDescription(knowledgeBase.getDescription())
+                .setDepartmentId(knowledgeBase.getDepartmentId())
+                .setIsPublic(knowledgeBase.getIsPublic())
+                .setCreatedBy(knowledgeBase.getCreatedBy())
+                .setCreatedAt(knowledgeBase.getCreatedAt())
                 .setPermission(permission);
     }
 

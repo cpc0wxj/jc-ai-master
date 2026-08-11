@@ -11,17 +11,15 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @SpringBootTest
 class DataInitTest {
-
     @Autowired
-    private KbDocumentRepository documentRepository;
-
+    private KbDocumentRepository kbDocumentRepository;
     @Autowired
-    private DocChunkRepository chunkRepository;
+    private DocChunkRepository docChunkRepository;
 
     @Test
     void verifyTestDataLoaded() {
-        long docCount = documentRepository.countByStatus(KbDocument.DocumentStatus.DONE);
-        long chunkCount = chunkRepository.count();
+        long docCount = kbDocumentRepository.countByStatus(KbDocument.DocumentStatus.DONE);
+        long chunkCount = docChunkRepository.count();
 
         assertThat(docCount).isGreaterThanOrEqualTo(3);
         assertThat(chunkCount).isGreaterThan(10);
