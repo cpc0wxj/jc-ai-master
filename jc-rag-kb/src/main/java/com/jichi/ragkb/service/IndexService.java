@@ -18,8 +18,6 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.springframework.aop.framework.AopContext;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -43,8 +41,7 @@ public class IndexService {
     private final EmbeddingService embeddingService;
     private final MinioStorageService minioStorageService;
     /**
-     * 索引线程池——重试时直接提交到此线程池，不经过 AOP 代理。
-     * retryScheduler 只负责延迟，到期后通过此线程池提交任务。
+     * 索引线程池——所有索引任务（初始提交 + 延迟重试）都通过此线程池异步执行。
      */
     private final Executor indexTaskExecutor;
 
@@ -75,7 +72,8 @@ public class IndexService {
         indexTaskRepository.save(indexTask);
 
         // 捕获当前用户上下文，传递给异步线程（ThreadLocal 不能跨线程）
-        ((IndexService) AopContext.currentProxy()).executeWithText(indexTask.getId(), docId, textContent, UserContext.getUserId(), UserContext.getDepartmentId(), UserContext.getRole());
+        Runnable runnable = () -> executeWithText(indexTask.getId(), docId, textContent, UserContext.getUserId(), UserContext.getDepartmentId(), UserContext.getRole());
+        indexTaskExecutor.execute(runnable);
     }
 
     /**
@@ -87,14 +85,14 @@ public class IndexService {
                 .setTaskType("INDEX_FROM_MINIO");  // ★ 区分入口——scheduleRetry 才能正确地走 MinIO 路径
         indexTaskRepository.save(indexTask);
 
-        ((IndexService) AopContext.currentProxy()).executeFromMinio(indexTask.getId(), docId, UserContext.getUserId(), UserContext.getDepartmentId(), UserContext.getRole());
+        Runnable runnable = () -> executeFromMinio(indexTask.getId(), docId, UserContext.getUserId(), UserContext.getDepartmentId(), UserContext.getRole());
+        indexTaskExecutor.execute(runnable);
     }
 
     /**
-     * 执行索引（直接使用文本内容，通过 @Async 异步调用）。
+     * 执行索引（直接使用文本内容，由 submitIndexTask 提交到 indexTaskExecutor 异步执行）。
      * 注意：文本任务失败后不能自动重试——文本只在内存里，重启就丢，scheduleRetry 会跳过这种 task。
      */
-    @Async("indexTaskExecutor")
     public void executeWithText(Long taskId, Long docId, String textContent, Long userId, String departmentId, String role) {
         // 在异步线程中恢复用户上下文
         UserContext.set(userId, departmentId, role);
@@ -124,13 +122,12 @@ public class IndexService {
     }
 
     /**
-     * 从 MinIO 读取文件并执行索引（通过 @Async 异步调用）
+     * 从 MinIO 读取文件并执行索引（由 submitIndexTask / scheduleRetry 提交到 indexTaskExecutor 异步执行）
      * 分阶段 try-catch 的理由：
      * → 文档不存在：是数据被并发删除的脏请求，重试也没用，直接 markFailed 终止
      * → MinIO 下载失败：通常是网络抖动 / 对象不存在，值得重试 → retryIfPossible
      * → 解析/索引失败：可能是文件本身格式坏、也可能是依赖服务抖动，先重试，重试上限到了再放弃
      */
-    @Async("indexTaskExecutor")
     public void executeFromMinio(Long taskId, Long docId, Long userId, String departmentId, String role) {
         // 在异步线程中恢复用户上下文
         UserContext.set(userId, departmentId, role);
@@ -299,7 +296,6 @@ public class IndexService {
      * 1. 用独立的 retryScheduler 延迟、不在 indexTaskExecutor 线程里 Thread.sleep——
      * 否则多个失败任务并发 sleep 会把索引线程池整体阻塞。
      * 2. 时间到了直接通过 indexTaskExecutor 线程池提交任务——
-     * 不走 AOP 代理，因为 retryScheduler 线程没有 AOP 上下文。
      * UserContext 在新线程里重新 set。
      * 3. 根据 task.taskType 正确选择重投入口——
      * MinIO 任务走 executeFromMinio，文本任务（文本只在内存里）直接放弃自动重试。
@@ -326,7 +322,6 @@ public class IndexService {
         retryScheduler.schedule(() -> {
             try {
                 // ★ 延迟到期后，直接提交到 indexTaskExecutor 线程池
-                //   不走 AOP 代理——retryScheduler 线程没有 AOP 上下文
                 //   executeFromMinio 内部会自行 set/clear UserContext
                 indexTaskExecutor.execute(() -> executeFromMinio(taskId, docId, userId, departmentId, role));
             } catch (Exception e) {

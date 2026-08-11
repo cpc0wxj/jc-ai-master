@@ -26,15 +26,6 @@ spring:
           max-idle: 8
           min-idle: 2
 
-  # ========== 异步任务线程池 ==========
-  task:
-    execution:
-      pool:
-        core-size: 4
-        max-size: 8
-        queue-capacity: 100
-      thread-name-prefix: "index-task-"
-
   # ========== 文件上传限制 ==========
   servlet:
     multipart:
