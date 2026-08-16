@@ -1,5 +1,7 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.core.util.StrUtil;
 import com.google.common.collect.Lists;
 import com.jichi.ragkb.config.RagRetrievalProperties;
 import com.jichi.ragkb.entity.DocChunk;
@@ -45,22 +47,19 @@ public class HybridRetrieverService {
      * @return 按 RRF 分数排序的 chunk 列表（含分数信息）
      */
     public List<ScoredChunk> retrieve(String question, List<Long> kbIds, int topN) {
-        int vectorTopK = ragRetrievalProperties.getVectorTopK();
-        int fulltextTopK = ragRetrievalProperties.getFulltextTopK();
-
-        // Step 1：向量检索
+        // 向量检索
         float[] queryEmbedding = embeddingService.embed(question);
-        String embeddingStr = toVectorString(queryEmbedding);
+        String embeddingStr = StrUtil.format("[{}]", ArrayUtil.join(queryEmbedding, ","));
 
         // 单次 SQL 完成多知识库检索：每个知识库取 TopK，不限制全局数量（后续 RRF 融合自行排序）
-        List<DocChunk> vectorResults = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, embeddingStr, vectorTopK, null);
+        List<DocChunk> vectorResults = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, embeddingStr, ragRetrievalProperties.getVectorTopK(), null);
 
         // Step 2：全文检索
         String tsQuery = tsQueryBuilder.build(question);
         List<DocChunk> fulltextResults = Lists.newArrayList();
         if (Objects.nonNull(tsQuery)) {
             fulltextResults = kbIds.stream()
-                    .flatMap(kbId -> docChunkRepository.findByFullTextSearch(kbId, tsQuery, fulltextTopK).stream())
+                    .flatMap(kbId -> docChunkRepository.findByFullTextSearch(kbId, tsQuery, ragRetrievalProperties.getFulltextTopK()).stream())
                     .collect(Collectors.toList());
         }
 
@@ -155,18 +154,6 @@ public class HybridRetrieverService {
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
                 .map(e -> new ScoredChunk(chunkMap.get(e.getKey()), e.getValue()))
                 .collect(Collectors.toList());
-    }
-
-    private String toVectorString(float[] embedding) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < embedding.length; i++) {
-            if (i > 0) {
-                sb.append(",");
-            }
-            sb.append(embedding[i]);
-        }
-        sb.append("]");
-        return sb.toString();
     }
 
     /**
