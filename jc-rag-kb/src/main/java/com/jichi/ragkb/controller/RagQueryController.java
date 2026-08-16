@@ -28,16 +28,16 @@ public class RagQueryController {
 
     private final FullRagPipeline fullRagPipeline;
 
-    @PostMapping("/query")
-    public ApiResponse<String> query(@RequestBody RagQueryRequest ragQueryRequest) {
-        String result = ragQueryService.query(ragQueryRequest.getQuestion(), ragQueryRequest.getKbIdList());
-        return ApiResponse.ok(result);
-    }
+//    @PostMapping("/query")
+//    public ApiResponse<String> query(@RequestBody RagQueryRequest ragQueryRequest) {
+//        String result = ragQueryService.query(ragQueryRequest.getQuestion(), ragQueryRequest.getKbIdList());
+//        return ApiResponse.ok(result);
+//    }
 
-    //    @PostMapping("/query")
-    //    public ApiResponse<String> query(@RequestBody RagQueryRequest req) {
-    //        return ApiResponse.ok(ragQueryServiceV2.query(req.getQuestion(), req.getKbIds()));
-    //    }
+        @PostMapping("/query")
+        public ApiResponse<String> query(@RequestBody RagQueryRequest req) {
+            return ApiResponse.ok(ragQueryServiceV2.query(req.getQuestion(), req.getKbIdList()));
+        }
 
     //    @PostMapping("/query")
     //    public ApiResponse<String> query(@RequestBody RagQueryRequest req) {
