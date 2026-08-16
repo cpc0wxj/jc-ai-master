@@ -4,6 +4,7 @@ import cn.hutool.core.collection.CollStreamUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
+import com.google.common.collect.Maps;
 import com.jichi.ragkb.config.RagRetrievalProperties;
 import com.jichi.ragkb.entity.DocChunk;
 import com.jichi.ragkb.entity.KnowledgeBase;
@@ -110,7 +111,7 @@ public class HybridRetrieverService {
         return CollStreamUtil.toList(kbIds,
                 kbId -> {
                     KnowledgeBase knowledgeBase = knowledgeBaseRepository.findById(kbId);
-                    boolean isPublic = Objects.nonNull(knowledgeBase) && Boolean.TRUE.equals(knowledgeBase.getIsPublic());
+                    boolean isPublic = Objects.nonNull(knowledgeBase) && Objects.equals(knowledgeBase.getIsPublic(), Boolean.TRUE);
                     if (isPublic) {
                         return kbId;
                     }
@@ -134,9 +135,9 @@ public class HybridRetrieverService {
      */
     private List<ScoredChunk> rrfMerge(List<DocChunk> vectorList, List<DocChunk> fulltextList) {
         // chunkId → RRF 分数累加值
-        Map<Long, Double> scoreMap = new LinkedHashMap<>();
+        Map<Long, Double> scoreMap = Maps.newLinkedHashMap();
         // chunkId → DocChunk 对象，用于后续构建结果
-        Map<Long, DocChunk> chunkMap = new HashMap<>();
+        Map<Long, DocChunk> chunkMap = Maps.newHashMap();
 
         // ========== 处理向量检索结果，计算 RRF 分数 ==========
         for (int i = 0; i < vectorList.size(); i++) {

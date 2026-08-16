@@ -1,9 +1,11 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.collection.CollStreamUtil;
 import com.jichi.ragkb.config.RagRetrievalProperties;
 import com.jichi.ragkb.entity.DocChunk;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
@@ -26,19 +28,17 @@ public class RagQueryServiceV2 {
     public String query(String question, List<Long> kbIds) {
         int returnTopN = ragRetrievalProperties.getReturnTopN();
 
-        // Step 1：混合检索
-        List<HybridRetrieverService.ScoredChunk> scoredChunks = hybridRetrieverService.retrieve(question, kbIds, returnTopN);
+        // 混合检索
+        List<HybridRetrieverService.ScoredChunk> scoredChunkList = hybridRetrieverService.retrieve(question, kbIds, returnTopN);
 
-        if (scoredChunks.isEmpty()) {
+        if (CollectionUtils.isEmpty(scoredChunkList)) {
             return buildNotFoundResponse();
         }
 
-        // Step 2：生成回答
-        List<DocChunk> chunks = scoredChunks.stream()
-                .map(HybridRetrieverService.ScoredChunk::chunk)
-                .collect(Collectors.toList());
+        // 生成回答
+        List<DocChunk> docChunkList = CollStreamUtil.toList(scoredChunkList, HybridRetrieverService.ScoredChunk::chunk);
 
-        return generateAnswer(question, chunks);
+        return generateAnswer(question, docChunkList);
     }
 
     private String generateAnswer(String question, List<DocChunk> chunks) {
