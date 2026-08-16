@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
@@ -147,8 +149,16 @@ public class KnowledgeBaseService {
                 .setUploadedBy(UserContext.getUserId());
         kbDocumentRepository.save(kbDocument);
 
-        // 异步提交索引任务
-        indexService.submitIndexTask(kbDocument.getId());
+        // 注册事务完成后的回调 - 确保主事务提交后再执行索引
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        // 事务提交后异步提交索引任务
+                        indexService.submitIndexTask(kbDocument.getId());
+                    }
+                }
+        );
 
         log.info("KnowledgeBaseService.uploadDocument docId={},fileName={},kbId={}", kbDocument.getId(), file.getOriginalFilename(), kbId);
         return kbDocument;
