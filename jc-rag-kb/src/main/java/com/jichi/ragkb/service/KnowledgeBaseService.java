@@ -200,14 +200,15 @@ public class KnowledgeBaseService {
             throw new RuntimeException("文档不存在：" + docId);
         }
 
-        // 版本号递增，索引完成后旧版本分块会被清理
-        kbDocument.setVersion(kbDocument.getVersion() + 1)
+        // version 不在此处递增——统一由 IndexService.doIndex 递增并写入同版本 chunk，
+        // 提前 +1 会导致 version 跳号，且检索 SQL（doc_version = version）在索引完成前匹配不上旧 chunk
+        kbDocument.setVersion(null)
                 .setStatus(KbDocument.DocumentStatus.PENDING)
                 .setErrorMsg("");
         kbDocumentRepository.updateById(kbDocument);
 
         indexService.submitIndexTask(docId);
-        log.info("KnowledgeBaseService.reindex docId={},newVersion={}", docId, kbDocument.getVersion());
+        log.info("KnowledgeBaseService.reindex docId={}", docId);
     }
 
     /**

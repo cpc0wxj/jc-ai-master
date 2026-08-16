@@ -52,6 +52,8 @@ public class DocumentUpdateService {
     /**
      * 在一个事务里完成：上传新文件 + 更新文档记录
      * 返回旧文件路径，供事务提交后异步删除
+     * 注意：version 不在此处递增——统一由 IndexService.doIndex 递增并写入同版本 chunk，
+     * 此处提前 +1 会导致 version 跳号，且检索 SQL（doc_version = version）在索引完成前匹配不上旧 chunk
      */
     @Transactional
     public String updateDocumentRecord(Long docId, MultipartFile newFile) {
@@ -69,7 +71,7 @@ public class DocumentUpdateService {
         kbDocument.setFileName(newFile.getOriginalFilename())
                 .setFileSize(newFile.getSize())
                 .setMinioPath(newMinioPath)
-                .setVersion(kbDocument.getVersion() + 1)
+                .setVersion(null)
                 .setStatus(KbDocument.DocumentStatus.PENDING)
                 .setErrorMsg(null)
                 .setChunkCount(null)
@@ -77,12 +79,14 @@ public class DocumentUpdateService {
                 .setIndexedAt(null);
         kbDocumentRepository.updateById(kbDocument);
 
-        log.info("DocumentUpdateService.updateDocumentRecord docId={},newVersion={},newFile={}", docId, kbDocument.getVersion(), newFile.getOriginalFilename());
+        log.info("DocumentUpdateService.updateDocumentRecord docId={},newFile={}", docId, newFile.getOriginalFilename());
         return oldMinioPath;
     }
 
     /**
      * 强制重建索引（文件未变，只是想用新策略重新切分/向量化）
+     * 注意：version 不在此处递增——统一由 IndexService.doIndex 递增，
+     * 文件字节未变时旧 chunk 仍可被检索命中，不应提前 +1 让其立即失效
      */
     @Transactional
     public void forceReindex(Long docId) {
@@ -94,7 +98,7 @@ public class DocumentUpdateService {
             throw new RuntimeException("文档已删除，无法重建：" + docId);
         }
 
-        kbDocument.setVersion(kbDocument.getVersion() + 1)
+        kbDocument.setVersion(null)
                 .setStatus(KbDocument.DocumentStatus.PENDING)
                 .setErrorMsg(null)
                 .setChunkCount(null)
@@ -102,6 +106,6 @@ public class DocumentUpdateService {
                 .setIndexedAt(null);
         kbDocumentRepository.updateById(kbDocument);
 
-        log.info("DocumentUpdateService.forceReindex docId={},newVersion={}", docId, kbDocument.getVersion());
+        log.info("DocumentUpdateService.forceReindex docId={}", docId);
     }
 }
