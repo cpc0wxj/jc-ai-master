@@ -33,18 +33,18 @@ public class RagQueryService {
      * 基础 RAG 查询：向量检索 + 生成回答
      *
      * @param question 用户问题
-     * @param kbIds 要查询的知识库 ID 列表
+     * @param kbIdList 要查询的知识库 ID 列表
      * @return 生成的答案
      */
-    public String query(String question, List<Long> kbIds) {
+    public String query(String question, List<Long> kbIdList) {
         int vectorTopK = ragRetrievalProperties.getVectorTopK();
         // 向量化问题并拼接为向量字符串
         float[] queryEmbedding = embeddingService.embed(question);
         String embeddingStr = StrUtil.format("[{}]", ArrayUtil.join(queryEmbedding, ","));
 
         // 向量检索
-        List<DocChunk> docChunkList = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, embeddingStr, vectorTopK, vectorTopK);
-        log.debug("RagQueryService.query kbIds={}, retrieved={}", kbIds, docChunkList.size());
+        List<DocChunk> docChunkList = docChunkRepository.findByVectorSimilarityMultiKb(kbIdList, embeddingStr, vectorTopK, vectorTopK);
+        log.debug("RagQueryService.query kbIdList={}, retrieved={}", kbIdList, docChunkList.size());
 
         if (CollectionUtils.isEmpty(docChunkList)) {
             return "在您选择的知识库中未找到与该问题相关的内容。请确认问题是否与知识库的主题相关，或尝试用不同的表达方式提问。";

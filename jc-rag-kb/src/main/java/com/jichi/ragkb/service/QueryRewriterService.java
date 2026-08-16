@@ -29,7 +29,7 @@ public class QueryRewriterService {
      */
     @Cacheable(value = "hyde-cache", key = "#question.hashCode()")
     public String generateHypotheticalAnswer(String question) {
-        log.debug("QueryRewriterService.generateHypotheticalAnswer question={}", question);
+        log.info("QueryRewriterService.generateHypotheticalAnswer question={}", question);
 
         String prompt = """
                 请根据以下问题，生成一个简洁的假设性回答（2-4句话）。
@@ -42,7 +42,7 @@ public class QueryRewriterService {
                     .user(prompt)
                     .call()
                     .content();
-            log.debug("QueryRewriterService.generateHypotheticalAnswer result={}", hypothetical);
+            log.info("QueryRewriterService.generateHypotheticalAnswer result={}", hypothetical);
 
             int genTokens = contextTrimmerService.countTokens(hypothetical);
             tokenMetrics.recordGenerationTokens(genTokens);

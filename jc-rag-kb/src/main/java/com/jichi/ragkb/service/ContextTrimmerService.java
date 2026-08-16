@@ -14,28 +14,26 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Objects;
 
 /**
  * 上下文裁剪器
  * 在 Token 预算内尽量多保留高相关性 chunk
- *
  * 策略：按 Reranker 分数从高到低贪心添加 chunk，
  * 直到 Token 预算耗尽或所有 chunk 已添加完毕
  */
-@Service
 @Slf4j
+@Service
 @RequiredArgsConstructor
 public class ContextTrimmerService {
     private final RagContextProperties ragContextProperties;
     private final TokenMetrics tokenMetrics;
-    private Encoding tokenizer;
+    private Encoding encoding;
 
     @PostConstruct
     public void init() {
         // 使用 cl100k_base tokenizer（GPT-4 / qwen-plus 兼容）
         EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
-        this.tokenizer = registry.getEncoding(EncodingType.CL100K_BASE);
+        this.encoding = registry.getEncoding(EncodingType.CL100K_BASE);
     }
 
     /**
@@ -97,11 +95,11 @@ public class ContextTrimmerService {
      * 对于中文，jtokkit 使用 cl100k 编码，1个汉字约 1-2 Token
      */
     public int countTokens(String text) {
-        if (Objects.isNull(text) || StringUtils.isBlank(text)) {
+        if (StringUtils.isBlank(text)) {
             return 0;
         }
 
-        return tokenizer.encode(text).size();
+        return encoding.encode(text).size();
     }
 
     /**
