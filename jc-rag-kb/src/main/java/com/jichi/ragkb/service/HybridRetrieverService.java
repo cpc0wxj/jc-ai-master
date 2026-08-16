@@ -13,6 +13,8 @@ import com.jichi.ragkb.repository.KnowledgeBaseRepository;
 import com.jichi.ragkb.security.UserContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -28,7 +30,6 @@ import java.util.stream.Collectors;
 public class HybridRetrieverService {
     private final EmbeddingService embeddingService;
     private final DocChunkRepository docChunkRepository;
-    private final TsQueryBuilder tsQueryBuilder;
     private final KnowledgeBaseRepository knowledgeBaseRepository;
     private final KbPermissionRepository kbPermissionRepository;
     private final RagRetrievalProperties ragRetrievalProperties;
@@ -37,6 +38,11 @@ public class HybridRetrieverService {
      * RRF 平滑参数，通常取 60
      */
     private static final int RRF_K = 60;
+
+    /**
+     * 全文检索停用词（这些词在全文检索中无意义）
+     */
+    private static final List<String> STOP_WORDS = List.of("的", "了", "是", "在", "有", "和", "与", "或", "这", "那", "什么", "怎么", "如何", "为什么", "哪些", "怎样", "请问", "a", "an", "the", "is", "are", "what", "how");
 
     /**
      * 混合检索：向量检索 + 全文检索，RRF 融合排序
@@ -54,8 +60,8 @@ public class HybridRetrieverService {
         // 单次 SQL 完成多知识库检索：每个知识库取 TopK，不限制全局数量（后续 RRF 融合自行排序）
         List<DocChunk> vectorResults = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, embeddingStr, ragRetrievalProperties.getVectorTopK(), null);
 
-        // Step 2：全文检索
-        String tsQuery = tsQueryBuilder.build(question);
+        // 全文检索
+        String tsQuery = buildTsQuery(question);
         List<DocChunk> fulltextResults = Lists.newArrayList();
         if (Objects.nonNull(tsQuery)) {
             fulltextResults = kbIds.stream()
@@ -154,6 +160,37 @@ public class HybridRetrieverService {
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
                 .map(e -> new ScoredChunk(chunkMap.get(e.getKey()), e.getValue()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 将问题转为 tsquery 格式
+     * 例如："API 限流策略是什么" → "API & 限流 & 策略"
+     */
+    private String buildTsQuery(String query) {
+        if (StringUtils.isBlank(query)) {
+            return null;
+        }
+
+        // 按空格、标点切分
+        String[] tokens = query.split("[\\s\\p{P}]+");
+
+        List<String> keywordList = Arrays.stream(tokens)
+                .map(String::strip)
+                .filter(StringUtils::isNotBlank)
+                .filter(t -> t.length() >= 2)
+                .filter(t -> !STOP_WORDS.contains(t.toLowerCase()))
+                .collect(Collectors.toList());
+
+        // 若关键词list为空
+        if (CollectionUtils.isEmpty(keywordList)) {
+            // 降级：取整个查询的前20字符
+            keywordList = List.of(query.substring(0, Math.min(20, query.length())));
+        }
+
+        // 用 & 连接（AND 查询），至少含所有关键词
+        String tsQuery = String.join(" & ", keywordList);
+        log.info("HybridRetrieverService.buildTsQuery query={},tsQuery={}", query, tsQuery);
+        return tsQuery;
     }
 
     /**
