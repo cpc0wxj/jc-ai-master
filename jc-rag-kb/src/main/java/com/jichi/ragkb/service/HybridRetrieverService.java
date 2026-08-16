@@ -1,6 +1,7 @@
 package com.jichi.ragkb.service;
 
 import cn.hutool.core.collection.CollStreamUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import com.jichi.ragkb.config.RagRetrievalProperties;
@@ -159,10 +160,8 @@ public class HybridRetrieverService {
             chunkMap.put(docChunk.getId(), docChunk);
         }
 
-        List<Map.Entry<Long, Double>> entryList = scoreMap.entrySet().stream()
-                // 降序排列
-                .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
-                .toList();
+        // 按 RRF 分数降序排序
+        List<Map.Entry<Long, Double>> entryList = CollUtil.sort(scoreMap.entrySet(), (temp1, temp2) -> temp2.getValue().compareTo(temp1.getValue()));
         // 根据 chunkId 从 chunkMap 取出对应的 DocChunk 对象，包装为 ScoredChunk
         return CollStreamUtil.toList(entryList, temp -> new ScoredChunk(chunkMap.get(temp.getKey()), temp.getValue()));
     }
