@@ -170,7 +170,6 @@ public class IndexService {
 
     /**
      * 核心索引逻辑：解析 → 分块 → Embedding → 写新版本 → 删旧版本 → 更新状态。
-     * <p>
      * 设计思路（关键）：新版本写入完成后，才删除旧版本——真正的"先写后删"。
      * 每次 doIndex 都把 doc.version + 1，新写入的 chunk 用新版本号；
      * 只有 batchInsertChunks 全部完成，才会 deleteByDocIdAndDocVersionLessThan(newVersion)。
@@ -202,7 +201,7 @@ public class IndexService {
             List<float[]> embeddingList = embeddingService.embedBatch(textList);
 
             // 递增版本号——下面写入用新版本号；旧 chunk 保持旧版本号不动
-            int newVersion = (kbDocument.getVersion() == null ? 1 : kbDocument.getVersion() + 1);
+            int newVersion = (Objects.nonNull(kbDocument.getVersion()) ? kbDocument.getVersion() + 1 : 1);
             kbDocument.setVersion(newVersion);
             kbDocument.setStatus(KbDocument.DocumentStatus.PROCESSING);  // ★ 保持 PROCESSING，不被覆盖
             kbDocumentRepository.updateById(kbDocument);

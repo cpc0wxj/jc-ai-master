@@ -36,11 +36,7 @@ public class DocumentUpdateService {
         String oldMinioPath = ((DocumentUpdateService) AopContext.currentProxy()).updateDocumentRecord(docId, newFile);
         indexService.submitIndexTask(docId);
         minioStorageService.delete(oldMinioPath);
-        KbDocument kbDocument = kbDocumentRepository.findById(docId);
-        if (Objects.isNull(kbDocument)) {
-            throw new RuntimeException("文档不存在：" + docId);
-        }
-        return kbDocument;
+        return kbDocumentRepository.findById(docId);
     }
 
     /**
