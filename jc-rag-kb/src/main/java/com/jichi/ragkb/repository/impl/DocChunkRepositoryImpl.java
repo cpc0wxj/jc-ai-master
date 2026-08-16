@@ -67,7 +67,7 @@ public class DocChunkRepositoryImpl extends ServiceImpl<DocChunkMapper, DocChunk
     }
 
     @Override
-    public List<DocChunk> findByFullTextSearch(Long kbId, String tsQuery, int topK) {
-        return baseMapper.findByFullTextSearch(kbId, tsQuery, topK);
+    public List<DocChunk> findByFullTextSearchMultiKb(List<Long> kbIds, String tsQuery, int topK, Integer globalTopK) {
+        return baseMapper.findByFullTextSearchMultiKb(kbIds, tsQuery, topK, globalTopK);
     }
 }

@@ -25,5 +25,8 @@ public interface DocChunkMapper extends BaseMapper<DocChunk> {
      * 全文检索（PostgreSQL 全文搜索）。
      * 使用 to_tsquery('simple', :query) 匹配 content_tsv。
      */
-    List<DocChunk> findByFullTextSearch(@Param("kbId") Long kbId, @Param("tsQuery") String tsQuery, @Param("topK") int topK);
+    /**
+     * 多知识库全文检索（单次 SQL 实现每个知识库 TopK 限制）
+     */
+    List<DocChunk> findByFullTextSearchMultiKb(@Param("kbIds") List<Long> kbIds, @Param("tsQuery") String tsQuery, @Param("topK") int topK, @Param("globalTopK") Integer globalTopK);
 }

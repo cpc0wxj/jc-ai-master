@@ -2,7 +2,6 @@ package com.jichi.ragkb.service;
 
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
-import com.google.common.collect.Lists;
 import com.jichi.ragkb.config.RagRetrievalProperties;
 import com.jichi.ragkb.entity.DocChunk;
 import com.jichi.ragkb.entity.KnowledgeBase;
@@ -62,26 +61,21 @@ public class HybridRetrieverService {
 
         // 全文检索
         String tsQuery = buildTsQuery(question);
-        List<DocChunk> fulltextResults = Lists.newArrayList();
-        if (Objects.nonNull(tsQuery)) {
-            fulltextResults = kbIds.stream()
-                    .flatMap(kbId -> docChunkRepository.findByFullTextSearch(kbId, tsQuery, ragRetrievalProperties.getFulltextTopK()).stream())
-                    .collect(Collectors.toList());
-        }
+        List<DocChunk> fulltextResults = StringUtils.isNotBlank(tsQuery) ?
+                docChunkRepository.findByFullTextSearchMultiKb(kbIds, tsQuery, ragRetrievalProperties.getFulltextTopK(), null) : Collections.emptyList();
 
-        log.debug("HybridRetrieverService.retrieve vectorResults={},fulltextResults={}",
-                vectorResults.size(), fulltextResults.size());
+        log.debug("HybridRetrieverService.retrieve vectorResults={},fulltextResults={}", vectorResults.size(), fulltextResults.size());
 
-        // Step 3：RRF 融合
-        List<ScoredChunk> merged = rrfMerge(vectorResults, fulltextResults);
+        // RRF 融合
+        List<ScoredChunk> scoredChunkList = rrfMerge(vectorResults, fulltextResults);
 
-        // Step 4：取 TopN
-        List<ScoredChunk> topResults = merged.stream()
+        // 取 TopN
+        scoredChunkList = scoredChunkList.stream()
                 .limit(topN)
                 .collect(Collectors.toList());
 
-        log.info("HybridRetrieverService.retrieve topN={},returned={}", topN, topResults.size());
-        return topResults;
+        log.info("HybridRetrieverService.retrieve topN={},scoredChunkList={}", topN, scoredChunkList.size());
+        return scoredChunkList;
     }
 
     /**
