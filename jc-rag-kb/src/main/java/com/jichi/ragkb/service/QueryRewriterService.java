@@ -80,18 +80,17 @@ public class QueryRewriterService {
             int genTokens = contextTrimmerService.countTokens(expanded);
             tokenMetrics.recordGenerationTokens(genTokens);
 
-            List<String> queries = Lists.newArrayList();
-            queries.add(question);
+            List<String> questionList = Lists.newArrayList();
+            questionList.add(question);
 
             Arrays.stream(expanded.split("\n"))
                     .map(String::strip)
-                    .filter(q -> StringUtils.isNotBlank(q) && !q.equals(question))
+                    .filter(temp -> StringUtils.isNotBlank(temp) && !temp.equals(question))
                     .limit(3)
-                    .forEach(queries::add);
+                    .forEach(questionList::add);
 
-            log.debug("QueryRewriterService.expandQuery result={}", queries);
-            return queries;
-
+            log.debug("QueryRewriterService.expandQuery result={}", questionList);
+            return questionList;
         } catch (Exception e) {
             log.warn("QueryRewriterService.expandQuery failed message={}", e.getMessage());
             return List.of(question);

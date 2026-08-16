@@ -2,6 +2,7 @@ package com.jichi.ragkb.service;
 
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
+import com.google.common.collect.Maps;
 import com.jichi.ragkb.config.RagRetrievalProperties;
 import com.jichi.ragkb.entity.DocChunk;
 import com.jichi.ragkb.repository.DocChunkRepository;
@@ -42,34 +43,28 @@ public class EnhancedRetrieverService {
     public List<HybridRetrieverService.ScoredChunk> retrieveWithHyde(String question, List<Long> kbIds, int topN) {
         // 原始问题的混合检索结果
         List<HybridRetrieverService.ScoredChunk> originalResults = hybridRetrieverService.retrieve(question, kbIds, ragRetrievalProperties.getVectorTopK());
-
-        // 路线2：HyDE 假设答案的向量检索结果
+        // HyDE 假设答案的向量检索结果
         String hydeAnswer = queryRewriterService.generateHypotheticalAnswer(question);
         float[] hydeEmbedding = embeddingService.embed(hydeAnswer);
         String hydeEmbeddingStr = StrUtil.format("[{}]", ArrayUtil.join(hydeEmbedding, ","));
-
         // 单次 SQL 完成多知识库检索：每个知识库取 TopK，不限制全局数量（后续 RRF 融合自行排序）
-        List<DocChunk> hydeResults = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, hydeEmbeddingStr, ragRetrievalProperties.getVectorTopK(), null);
-
-        log.debug("EnhancedRetrieverService.retrieveWithHyde originalResults={},hydeResults={}",
-                originalResults.size(), hydeResults.size());
+        List<DocChunk> hydeResultList = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, hydeEmbeddingStr, ragRetrievalProperties.getVectorTopK(), null);
+        log.info("EnhancedRetrieverService.retrieveWithHyde originalResults={},hydeResultList={}", originalResults.size(), hydeResultList.size());
 
         // RRF 融合两路结果
-        Map<Long, Double> scoreMap = new LinkedHashMap<>();
-        Map<Long, DocChunk> chunkMap = new HashMap<>();
-
+        Map<Long, Double> scoreMap = Maps.newLinkedHashMap();
+        Map<Long, DocChunk> chunkMap = Maps.newHashMap();
         // 原始结果按已有 RRF 分数参与融合
-        for (int rank = 0; rank < originalResults.size(); rank++) {
-            HybridRetrieverService.ScoredChunk scoredChunk = originalResults.get(rank);
-            double rrfScore = 1.0 / (RRF_K + rank + 1);
+        for (int i = 0; i < originalResults.size(); i++) {
+            HybridRetrieverService.ScoredChunk scoredChunk = originalResults.get(i);
+            double rrfScore = 1.0 / (RRF_K + i + 1);
             scoreMap.merge(scoredChunk.id(), rrfScore, Double::sum);
             chunkMap.put(scoredChunk.id(), scoredChunk.chunk());
         }
-
         // HyDE 结果
-        for (int rank = 0; rank < hydeResults.size(); rank++) {
-            DocChunk docChunk = hydeResults.get(rank);
-            double rrfScore = 1.0 / (RRF_K + rank + 1);
+        for (int i = 0; i < hydeResultList.size(); i++) {
+            DocChunk docChunk = hydeResultList.get(i);
+            double rrfScore = 1.0 / (RRF_K + i + 1);
             scoreMap.merge(docChunk.getId(), rrfScore, Double::sum);
             chunkMap.put(docChunk.getId(), docChunk);
         }
