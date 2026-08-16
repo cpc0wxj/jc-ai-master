@@ -122,35 +122,49 @@ public class HybridRetrieverService {
     }
 
     /**
-     * RRF 融合两路结果
-     * 去重：同一个 chunk 出现在两路结果中时，分数累加
+     * RRF 融合两路检索结果
+     * RRF (Reciprocal Rank Fusion) 是一种无参数的结果融合策略
+     * 核心思想：每个 chunk 根据其在搜索结果中的排名获得分数，排名越靠前分数越高
+     * 若同一个 chunk 在向量检索和全文检索中都出现，则累加其 RRF 分数
+     *
+     * @param vectorList   向量检索返回的结果列表（已按相似度降序）
+     * @param fulltextList 全文检索返回的结果列表（已按相关性降序）
+     * @return 按 RRF 分数排序的带分数 Chunk 列表（含分数信息）
      */
     private List<ScoredChunk> rrfMerge(List<DocChunk> vectorList, List<DocChunk> fulltextList) {
-        // key: chunkId → RRF 分数
+        // chunkId → RRF 分数累加值
         Map<Long, Double> scoreMap = new LinkedHashMap<>();
+        // chunkId → DocChunk 对象，用于后续构建结果
         Map<Long, DocChunk> chunkMap = new HashMap<>();
 
-        // 向量检索结果计分
-        for (int rank = 0; rank < vectorList.size(); rank++) {
-            DocChunk docChunk = vectorList.get(rank);
-            double rrfScore = 1.0 / (RRF_K + rank + 1);
+        // ========== 处理向量检索结果，计算 RRF 分数 ==========
+        for (int i = 0; i < vectorList.size(); i++) {
+            DocChunk docChunk = vectorList.get(i);
+            // RRF 公式：score = 1 / (k + rank + 1)
+            // k=60 是平滑参数，rank 从 0 开始，+1 避免除数为 0
+            double rrfScore = 1.0 / (RRF_K + i + 1);
+            // 若该 chunk 已在 map 中（重复），则累加分数；否则新建
+            scoreMap.merge(docChunk.getId(), rrfScore, Double::sum);
+            // 缓存 chunk 对象（后续去重后直接取用）
+            chunkMap.put(docChunk.getId(), docChunk);
+        }
+
+        // ========== 处理全文检索结果，分数累加 ==========
+        for (int i = 0; i < fulltextList.size(); i++) {
+            DocChunk docChunk = fulltextList.get(i);
+            // RRF 公式相同
+            double rrfScore = 1.0 / (RRF_K + i + 1);
+            // 若该 chunk 在向量检索中也出现过，分数累加；否则新建
             scoreMap.merge(docChunk.getId(), rrfScore, Double::sum);
             chunkMap.put(docChunk.getId(), docChunk);
         }
 
-        // 全文检索结果计分（累加）
-        for (int rank = 0; rank < fulltextList.size(); rank++) {
-            DocChunk docChunk = fulltextList.get(rank);
-            double rrfScore = 1.0 / (RRF_K + rank + 1);
-            scoreMap.merge(docChunk.getId(), rrfScore, Double::sum);
-            chunkMap.put(docChunk.getId(), docChunk);
-        }
-
-        // 按 RRF 分数降序排列
-        return scoreMap.entrySet().stream()
+        List<Map.Entry<Long, Double>> entryList = scoreMap.entrySet().stream()
+                // 降序排列
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
-                .map(e -> new ScoredChunk(chunkMap.get(e.getKey()), e.getValue()))
-                .collect(Collectors.toList());
+                .toList();
+        // 根据 chunkId 从 chunkMap 取出对应的 DocChunk 对象，包装为 ScoredChunk
+        return CollStreamUtil.toList(entryList, temp -> new ScoredChunk(chunkMap.get(temp.getKey()), temp.getValue()));
     }
 
     /**
