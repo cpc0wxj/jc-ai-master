@@ -1,5 +1,7 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.core.util.StrUtil;
 import com.jichi.ragkb.config.RagRetrievalProperties;
 import com.jichi.ragkb.entity.DocChunk;
 import com.jichi.ragkb.repository.DocChunkRepository;
@@ -37,21 +39,17 @@ public class EnhancedRetrieverService {
      * @param kbIds    知识库 ID 列表
      * @param topN     返回数量
      */
-    public List<HybridRetrieverService.ScoredChunk> retrieveWithHyde(
-            String question, List<Long> kbIds, int topN) {
-
-        int vectorTopK = ragRetrievalProperties.getVectorTopK();
-
-        // 路线1：原始问题的混合检索结果
-        List<HybridRetrieverService.ScoredChunk> originalResults = hybridRetrieverService.retrieve(question, kbIds, vectorTopK);
+    public List<HybridRetrieverService.ScoredChunk> retrieveWithHyde(String question, List<Long> kbIds, int topN) {
+        // 原始问题的混合检索结果
+        List<HybridRetrieverService.ScoredChunk> originalResults = hybridRetrieverService.retrieve(question, kbIds, ragRetrievalProperties.getVectorTopK());
 
         // 路线2：HyDE 假设答案的向量检索结果
         String hydeAnswer = queryRewriterService.generateHypotheticalAnswer(question);
         float[] hydeEmbedding = embeddingService.embed(hydeAnswer);
-        String hydeEmbeddingStr = toVectorString(hydeEmbedding);
+        String hydeEmbeddingStr = StrUtil.format("[{}]", ArrayUtil.join(hydeEmbedding, ","));
 
         // 单次 SQL 完成多知识库检索：每个知识库取 TopK，不限制全局数量（后续 RRF 融合自行排序）
-        List<DocChunk> hydeResults = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, hydeEmbeddingStr, vectorTopK, null);
+        List<DocChunk> hydeResults = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, hydeEmbeddingStr, ragRetrievalProperties.getVectorTopK(), null);
 
         log.debug("EnhancedRetrieverService.retrieveWithHyde originalResults={},hydeResults={}",
                 originalResults.size(), hydeResults.size());
@@ -81,17 +79,5 @@ public class EnhancedRetrieverService {
                 .limit(topN)
                 .map(e -> new HybridRetrieverService.ScoredChunk(chunkMap.get(e.getKey()), e.getValue()))
                 .collect(Collectors.toList());
-    }
-
-    private String toVectorString(float[] embedding) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < embedding.length; i++) {
-            if (i > 0) {
-                sb.append(",");
-            }
-            sb.append(embedding[i]);
-        }
-        sb.append("]");
-        return sb.toString();
     }
 }
