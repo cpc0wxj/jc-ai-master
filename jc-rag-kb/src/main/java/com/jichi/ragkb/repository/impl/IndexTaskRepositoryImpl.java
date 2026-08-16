@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.IndexTask;
 import com.jichi.ragkb.mapper.IndexTaskMapper;
@@ -29,9 +30,10 @@ public class IndexTaskRepositoryImpl extends ServiceImpl<IndexTaskMapper, IndexT
 
     @Override
     public IndexTask findTopByDocIdOrderByCreatedAtDesc(Long docId) {
-        return getOne(new LambdaQueryWrapper<IndexTask>()
+        LambdaQueryWrapper<IndexTask> lambdaQueryWrapper = Wrappers.<IndexTask>lambdaQuery()
                 .eq(IndexTask::getDocId, docId)
                 .orderByDesc(IndexTask::getCreatedAt)
-                .last("LIMIT 1"));
+                .last("LIMIT 1");
+        return getOne(lambdaQueryWrapper);
     }
 }

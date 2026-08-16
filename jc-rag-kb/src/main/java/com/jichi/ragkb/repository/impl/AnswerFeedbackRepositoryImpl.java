@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.AnswerFeedback;
 import com.jichi.ragkb.mapper.AnswerFeedbackMapper;
@@ -21,9 +22,10 @@ public class AnswerFeedbackRepositoryImpl extends ServiceImpl<AnswerFeedbackMapp
 
     @Override
     public Optional<AnswerFeedback> findByMessageIdAndUserId(Long messageId, Long userId) {
-        AnswerFeedback result = getOne(new LambdaQueryWrapper<AnswerFeedback>()
+        LambdaQueryWrapper<AnswerFeedback> lambdaQueryWrapper = Wrappers.<AnswerFeedback>lambdaQuery()
                 .eq(AnswerFeedback::getMessageId, messageId)
-                .eq(AnswerFeedback::getUserId, userId));
+                .eq(AnswerFeedback::getUserId, userId);
+        AnswerFeedback result = getOne(lambdaQueryWrapper);
         return Optional.ofNullable(result);
     }
 }

@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.ChatMessage;
 import com.jichi.ragkb.mapper.ChatMessageMapper;
@@ -31,8 +32,9 @@ public class ChatMessageRepositoryImpl extends ServiceImpl<ChatMessageMapper, Ch
 
     @Override
     public List<ChatMessage> findBySessionIdOrderByCreatedAtAsc(String sessionId) {
-        return list(new LambdaQueryWrapper<ChatMessage>()
+        LambdaQueryWrapper<ChatMessage> lambdaQueryWrapper = Wrappers.<ChatMessage>lambdaQuery()
                 .eq(ChatMessage::getSessionId, sessionId)
-                .orderByAsc(ChatMessage::getCreatedAt));
+                .orderByAsc(ChatMessage::getCreatedAt);
+        return list(lambdaQueryWrapper);
     }
 }

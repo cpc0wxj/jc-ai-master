@@ -14,10 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
  * 接收用户对 AI 回答的点赞/点踩
  */
 @RestController
-@RequestMapping("/api/v1/feedback")
 @RequiredArgsConstructor
+@RequestMapping("/api/v1/feedback")
 public class FeedbackController {
-
     private final FeedbackService feedbackService;
 
     @PostMapping("/{messageId}")

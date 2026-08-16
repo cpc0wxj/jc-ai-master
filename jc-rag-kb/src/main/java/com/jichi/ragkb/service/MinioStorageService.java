@@ -1,14 +1,11 @@
 package com.jichi.ragkb.service;
 
 import com.jichi.ragkb.config.MinioProperties;
-import io.minio.BucketExistsArgs;
-import io.minio.GetObjectArgs;
-import io.minio.MakeBucketArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.RemoveObjectArgs;
+import io.minio.*;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -31,59 +28,53 @@ public class MinioStorageService {
      * 上传文件到 MinIO，返回对象路径
      * 路径格式：kb/{kbId}/{uuid}-{originalFileName}
      */
+    @SneakyThrows
     public String upload(Long kbId, MultipartFile file) {
         String objectPath = String.format("kb/%d/%s-%s", kbId, UUID.randomUUID().toString().substring(0, 8), file.getOriginalFilename());
-        try {
-            ensureBucketExists();
-            minioClient.putObject(PutObjectArgs.builder()
-                    .bucket(minioProperties.getBucket())
-                    .object(objectPath)
-                    .stream(file.getInputStream(), file.getSize(), -1)
-                    .contentType(file.getContentType())
-                    .build());
-            log.info("MinioStorageService.upload path={}", objectPath);
-            return objectPath;
-        } catch (Exception e) {
-            log.error("MinioStorageService.upload failed path={},error={}", objectPath, e.getMessage(), e);
-            throw new RuntimeException("文件上传失败：" + e.getMessage(), e);
-        }
+        ensureBucketExists();
+        minioClient.putObject(PutObjectArgs.builder()
+                .bucket(minioProperties.getBucket())
+                .object(objectPath)
+                .stream(file.getInputStream(), file.getSize(), -1)
+                .contentType(file.getContentType())
+                .build());
+        log.info("MinioStorageService.upload path={}", objectPath);
+        return objectPath;
     }
 
     /**
      * 从 MinIO 下载文件内容
      */
+    @SneakyThrows
     public byte[] download(String objectPath) {
-        try {
-            InputStream stream = minioClient.getObject(GetObjectArgs.builder()
-                    .bucket(minioProperties.getBucket())
-                    .object(objectPath)
-                    .build());
-            return stream.readAllBytes();
-        } catch (Exception e) {
-            log.error("MinioStorageService.download failed path={},error={}", objectPath, e.getMessage(), e);
-            throw new RuntimeException("文件下载失败：" + e.getMessage(), e);
-        }
+        InputStream inputStream = minioClient.getObject(GetObjectArgs.builder()
+                .bucket(minioProperties.getBucket())
+                .object(objectPath)
+                .build());
+        return inputStream.readAllBytes();
     }
 
     /**
      * 删除 MinIO 中的文件（文档删除时调用）
      */
+    @SneakyThrows
     public void delete(String objectPath) {
-        try {
-            minioClient.removeObject(RemoveObjectArgs.builder()
-                    .bucket(minioProperties.getBucket())
-                    .object(objectPath)
-                    .build());
-            log.info("MinioStorageService.delete path={}", objectPath);
-        } catch (Exception e) {
-            // 删除失败不抛出异常，只记录警告（文件可能已经不存在）
-            log.warn("MinioStorageService.delete failed path={},error={}", objectPath, e.getMessage());
+        if (StringUtils.isBlank(objectPath)) {
+            return;
         }
+
+        RemoveObjectArgs removeObjectArgs = RemoveObjectArgs.builder()
+                .bucket(minioProperties.getBucket())
+                .object(objectPath)
+                .build();
+        minioClient.removeObject(removeObjectArgs);
+        log.info("MinioStorageService.delete path={}", objectPath);
     }
 
     private void ensureBucketExists() throws Exception {
-        boolean exists = minioClient.bucketExists(BucketExistsArgs.builder()
-                .bucket(minioProperties.getBucket()).build());
+        BucketExistsArgs bucketExistsArgs = BucketExistsArgs.builder()
+                .bucket(minioProperties.getBucket()).build();
+        boolean exists = minioClient.bucketExists(bucketExistsArgs);
         if (!exists) {
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(minioProperties.getBucket()).build());
             log.info("MinioStorageService.ensureBucketExists bucket={}", minioProperties.getBucket());

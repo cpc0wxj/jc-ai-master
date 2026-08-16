@@ -44,9 +44,15 @@ public interface DocChunkRepository {
     List<DocChunk> findByIds(List<Long> ids);
 
     /**
-     * 向量相似度检索（PGVector 余弦距离）
+     * 多知识库向量相似度检索（单次 SQL 实现每个知识库 TopK 限制）
+     * 使用 PostgreSQL 窗口函数 ROW_NUMBER() OVER (PARTITION BY kb_id)
+     *
+     * @param kbIds   知识库 ID 列表
+     * @param embedding 向量字符串，格式 "[v1,v2,v3,...]"
+     * @param topK    每个知识库的 TopK 数量
+     * @param globalTopK 全局返回的最大数量（可选，可为 null 表示不限）
      */
-    List<DocChunk> findByVectorSimilarity(Long kbId, String embedding, int topK);
+    List<DocChunk> findByVectorSimilarityMultiKb(List<Long> kbIds, String embedding, int topK, Integer globalTopK);
 
     /**
      * 全文检索（PostgreSQL to_tsquery）

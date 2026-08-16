@@ -13,12 +13,11 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
-
     private final KbAuthInterceptor kbAuthInterceptor;
 
     @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(kbAuthInterceptor)
+    public void addInterceptors(InterceptorRegistry interceptorRegistry) {
+        interceptorRegistry.addInterceptor(kbAuthInterceptor)
                 .addPathPatterns("/api/**")
                 .excludePathPatterns("/api/v1/auth/**");
     }

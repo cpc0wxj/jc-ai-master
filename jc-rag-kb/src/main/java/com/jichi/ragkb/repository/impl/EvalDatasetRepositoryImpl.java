@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.EvalDataset;
 import com.jichi.ragkb.mapper.EvalDatasetMapper;
@@ -31,8 +32,9 @@ public class EvalDatasetRepositoryImpl extends ServiceImpl<EvalDatasetMapper, Ev
 
     @Override
     public List<EvalDataset> findByKbId(Long kbId) {
-        return list(new LambdaQueryWrapper<EvalDataset>()
-                .eq(EvalDataset::getKbId, kbId));
+        LambdaQueryWrapper<EvalDataset> lambdaQueryWrapper = Wrappers.<EvalDataset>lambdaQuery()
+                .eq(EvalDataset::getKbId, kbId);
+        return list(lambdaQueryWrapper);
     }
 
     @Override

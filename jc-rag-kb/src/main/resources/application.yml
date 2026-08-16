@@ -36,7 +36,8 @@ spring:
   ai:
     openai:
       # 使用 DashScope 的 OpenAI 兼容接口
-      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      # 注意：Spring AI 1.1.x 内部会自动拼接 /v1/，所以 base-url 末尾不能带 /v1
+      base-url: https://dashscope.aliyuncs.com/compatible-mode
       api-key: sk-9e085308d2e644e99464c5bcb1ba8b49
       chat:
         options:
@@ -45,7 +46,7 @@ spring:
           max-tokens: 2048
       embedding:
         # Embedding 单独配置 base-url 和 api-key（可与 chat 不同）
-        base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+        base-url: https://dashscope.aliyuncs.com/compatible-mode
         api-key: sk-9e085308d2e644e99464c5bcb1ba8b49
         options:
           model: text-embedding-v3

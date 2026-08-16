@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.KbPermission;
 import com.jichi.ragkb.mapper.KbPermissionMapper;
@@ -21,38 +22,43 @@ public class KbPermissionRepositoryImpl extends ServiceImpl<KbPermissionMapper, 
 
     @Override
     public List<KbPermission> findBySubjectTypeAndSubjectId(String subjectType, String subjectId) {
-        return list(new LambdaQueryWrapper<KbPermission>()
+        LambdaQueryWrapper<KbPermission> lambdaQueryWrapper = Wrappers.<KbPermission>lambdaQuery()
                 .eq(KbPermission::getSubjectType, subjectType)
-                .eq(KbPermission::getSubjectId, subjectId));
+                .eq(KbPermission::getSubjectId, subjectId);
+        return list(lambdaQueryWrapper);
     }
 
     @Override
     public boolean existsByKbIdAndSubjectTypeAndSubjectId(Long kbId, String subjectType, String subjectId) {
-        return count(new LambdaQueryWrapper<KbPermission>()
+        LambdaQueryWrapper<KbPermission> lambdaQueryWrapper = Wrappers.<KbPermission>lambdaQuery()
                 .eq(KbPermission::getKbId, kbId)
                 .eq(KbPermission::getSubjectType, subjectType)
-                .eq(KbPermission::getSubjectId, subjectId)) > 0;
+                .eq(KbPermission::getSubjectId, subjectId);
+        return count(lambdaQueryWrapper) > 0;
     }
 
     @Override
     public boolean existsByKbIdAndSubjectTypeAndSubjectIdAndPermissionIn(
             Long kbId, String subjectType, String subjectId, List<String> permissions) {
-        return count(new LambdaQueryWrapper<KbPermission>()
+        LambdaQueryWrapper<KbPermission> lambdaQueryWrapper = Wrappers.<KbPermission>lambdaQuery()
                 .eq(KbPermission::getKbId, kbId)
                 .eq(KbPermission::getSubjectType, subjectType)
                 .eq(KbPermission::getSubjectId, subjectId)
-                .in(KbPermission::getPermission, permissions)) > 0;
+                .in(KbPermission::getPermission, permissions);
+        return count(lambdaQueryWrapper) > 0;
     }
 
     @Override
     public List<KbPermission> findByKbId(Long kbId) {
-        return list(new LambdaQueryWrapper<KbPermission>()
-                .eq(KbPermission::getKbId, kbId));
+        LambdaQueryWrapper<KbPermission> lambdaQueryWrapper = Wrappers.<KbPermission>lambdaQuery()
+                .eq(KbPermission::getKbId, kbId);
+        return list(lambdaQueryWrapper);
     }
 
     @Override
     public boolean deleteByKbId(Long kbId) {
-        return remove(new LambdaQueryWrapper<KbPermission>()
-                .eq(KbPermission::getKbId, kbId));
+        LambdaQueryWrapper<KbPermission> lambdaQueryWrapper = Wrappers.<KbPermission>lambdaQuery()
+                .eq(KbPermission::getKbId, kbId);
+        return remove(lambdaQueryWrapper);
     }
 }

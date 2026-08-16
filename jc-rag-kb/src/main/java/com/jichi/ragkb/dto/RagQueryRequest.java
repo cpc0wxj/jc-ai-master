@@ -14,5 +14,5 @@ import java.util.List;
 @Accessors(chain = true)
 public class RagQueryRequest {
     private String question;
-    private List<Long> kbIds;
+    private List<Long> kbIdList;
 }

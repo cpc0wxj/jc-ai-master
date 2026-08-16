@@ -18,11 +18,10 @@ import java.util.Objects;
  * 认证接口
  * 演示用的登录接口，生产中应对接企业 SSO / LDAP
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/auth")
-@Slf4j
 public class AuthController {
-
     // 演示用用户数据（生产中从数据库查）
     private static final Map<String, UserProfile> DEMO_USERS = Map.of(
             "hr001", new UserProfile(1L, "HR", "MEMBER"),

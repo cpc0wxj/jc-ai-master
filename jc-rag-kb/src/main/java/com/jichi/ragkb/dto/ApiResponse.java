@@ -16,17 +16,15 @@ public class ApiResponse<T> {
     private T data;
 
     public static <T> ApiResponse<T> ok(T data) {
-        ApiResponse<T> response = new ApiResponse<T>()
+        return new ApiResponse<T>()
                 .setCode(200)
                 .setMessage("success")
                 .setData(data);
-        return response;
     }
 
     public static <T> ApiResponse<T> error(int code, String message) {
-        ApiResponse<T> response = new ApiResponse<T>()
+        return new ApiResponse<T>()
                 .setCode(code)
                 .setMessage(message);
-        return response;
     }
 }

@@ -1,36 +1,75 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.jichi.ragkb.mapper.DocChunkMapper">
-    <!-- 向量相似度检索（余弦相似度） -->
-    <!-- PGVector 的 <=> 操作符：余弦距离，距离越小越相似 -->
-    <!-- resultMap 引用 MyBatis-Plus autoResultMap 生成的映射，确保 embedding 字段经过 FloatVectorTypeHandler 转换 -->
-    <!-- JOIN kb_document 过滤条件：doc_version = d.version 只取当前版本 chunk，d.is_deleted = FALSE 排除软删除文档 -->
-    <select id="findByVectorSimilarity" resultMap="mybatis-plus_DocChunk">
-        SELECT c.*
-        FROM kb_doc_chunk c
-        JOIN kb_document d ON c.doc_id = d.id
-        WHERE c.kb_id = #{kbId}
-          AND c.doc_version = d.version
-          AND d.is_deleted = FALSE
-        ORDER BY c.embedding <![CDATA[<=>]]> CAST(#{embedding} AS vector)
-        LIMIT #{topK}
+    <resultMap id="DocChunkResultMap" type="com.jichi.ragkb.entity.DocChunk">
+        <id column="id" property="id"/>
+        <result column="doc_id" property="docId"/>
+        <result column="kb_id" property="kbId"/>
+        <result column="chunk_index" property="chunkIndex"/>
+        <result column="content" property="content"/>
+        <result column="embedding" property="embedding" typeHandler="com.jichi.ragkb.config.FloatVectorTypeHandler"/>
+        <result column="page_num" property="pageNum"/>
+        <result column="section_title" property="sectionTitle"/>
+        <result column="token_count" property="tokenCount"/>
+        <result column="doc_version" property="docVersion"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <!-- 多知识库向量相似度检索（PGVector 余弦距离 + 窗口函数分组 TopK） -->
+    <!-- 使用 ROW_NUMBER() OVER (PARTITION BY kb_id) 对每个知识库单独排名，外层再按相似度全局排序取前 topK -->
+    <select id="findByVectorSimilarityMultiKb" resultMap="DocChunkResultMap">
+        SELECT id,
+               doc_id,
+               kb_id,
+               chunk_index,
+               content,
+               embedding,
+               page_num,
+               section_title,
+               token_count,
+               doc_version,
+               created_at
+        FROM (
+        SELECT kb_doc_chunk.*,
+               ROW_NUMBER()
+               OVER (PARTITION BY kb_doc_chunk.kb_id ORDER BY kb_doc_chunk.embedding <![CDATA[<=>]]> CAST(#{embedding} AS vector)) as kb_rank
+        FROM kb_doc_chunk
+                 JOIN kb_document ON kb_doc_chunk.doc_id = kb_document.id
+        WHERE kb_doc_chunk.kb_id IN (
+        <foreach collection="kbIds" item="kbId" separator="," open="" close="">
+            #{kbId}
+        </foreach>)
+                    AND kb_doc_chunk.doc_version = kb_document.version
+                    AND kb_document.is_deleted = FALSE) ranked
+        WHERE kb_rank <![CDATA[<=]]> #{topK}
+        ORDER BY kb_rank, embedding <![CDATA[<=>]]> CAST(#{embedding} AS vector)
+        <if test="globalTopK != null">
+            LIMIT #{globalTopK}
+        </if>
     </select>
 
     <!-- 全文检索（PostgreSQL 全文搜索） -->
     <!-- to_tsquery('simple', :query) 匹配 content_tsv，simple 配置不做词干化，适合中文关键词 -->
     <!-- ts_rank 排序确保最相关结果在前，实际分数由调用方用 RRF 融合处理 -->
-    <!-- JOIN kb_document 过滤条件同向量检索：只取当前版本 chunk，排除软删除文档 -->
-    <select id="findByFullTextSearch" resultMap="mybatis-plus_DocChunk">
-        SELECT c.*
-        FROM kb_doc_chunk c
-        JOIN kb_document d ON c.doc_id = d.id
-        WHERE c.kb_id = #{kbId}
-          AND c.doc_version = d.version
-          AND d.is_deleted = FALSE
-          AND c.content_tsv @@ to_tsquery('simple', #{tsQuery})
-        ORDER BY ts_rank(c.content_tsv, to_tsquery('simple', #{tsQuery})) DESC
+    <select id="findByFullTextSearch" resultMap="DocChunkResultMap">
+        SELECT kb_doc_chunk.id,
+               kb_doc_chunk.doc_id,
+               kb_doc_chunk.kb_id,
+               kb_doc_chunk.chunk_index,
+               kb_doc_chunk.content,
+               kb_doc_chunk.embedding,
+               kb_doc_chunk.page_num,
+               kb_doc_chunk.section_title,
+               kb_doc_chunk.token_count,
+               kb_doc_chunk.doc_version,
+               kb_doc_chunk.created_at
+        FROM kb_doc_chunk
+                 JOIN kb_document ON kb_doc_chunk.doc_id = kb_document.id
+        WHERE kb_doc_chunk.kb_id = #{kbId}
+          AND kb_doc_chunk.doc_version = kb_document.version
+          AND kb_document.is_deleted = FALSE
+          AND kb_doc_chunk.content_tsv @@ to_tsquery('simple', #{tsQuery})
+        ORDER BY ts_rank(kb_doc_chunk.content_tsv, to_tsquery('simple', #{tsQuery})) DESC
         LIMIT #{topK}
     </select>
-
 </mapper>

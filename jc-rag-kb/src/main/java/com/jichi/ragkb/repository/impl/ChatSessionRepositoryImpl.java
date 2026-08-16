@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.ChatSession;
 import com.jichi.ragkb.mapper.ChatSessionMapper;
@@ -31,9 +32,10 @@ public class ChatSessionRepositoryImpl extends ServiceImpl<ChatSessionMapper, Ch
 
     @Override
     public List<ChatSession> findByUserIdAndIsDeletedFalseOrderByLastActiveAtDesc(Long userId) {
-        return list(new LambdaQueryWrapper<ChatSession>()
+        LambdaQueryWrapper<ChatSession> lambdaQueryWrapper = Wrappers.<ChatSession>lambdaQuery()
                 .eq(ChatSession::getUserId, userId)
                 .eq(ChatSession::getIsDeleted, false)
-                .orderByDesc(ChatSession::getLastActiveAt));
+                .orderByDesc(ChatSession::getLastActiveAt);
+        return list(lambdaQueryWrapper);
     }
 }

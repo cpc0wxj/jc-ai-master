@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.DocChunk;
 import com.jichi.ragkb.mapper.DocChunkMapper;
@@ -21,9 +22,10 @@ public class DocChunkRepositoryImpl extends ServiceImpl<DocChunkMapper, DocChunk
 
     @Override
     public boolean deleteByDocIdAndDocVersionLessThan(Long docId, Integer version) {
-        return remove(new LambdaQueryWrapper<DocChunk>()
+        LambdaQueryWrapper<DocChunk> lambdaQueryWrapper = Wrappers.<DocChunk>lambdaQuery()
                 .eq(DocChunk::getDocId, docId)
-                .lt(DocChunk::getDocVersion, version));
+                .lt(DocChunk::getDocVersion, version);
+        return remove(lambdaQueryWrapper);
     }
 
     @Override
@@ -33,31 +35,35 @@ public class DocChunkRepositoryImpl extends ServiceImpl<DocChunkMapper, DocChunk
 
     @Override
     public List<DocChunk> findByDocId(Long docId) {
-        return list(new LambdaQueryWrapper<DocChunk>()
-                .eq(DocChunk::getDocId, docId));
+        LambdaQueryWrapper<DocChunk> lambdaQueryWrapper = Wrappers.<DocChunk>lambdaQuery()
+                .eq(DocChunk::getDocId, docId);
+        return list(lambdaQueryWrapper);
     }
 
     @Override
     public List<DocChunk> findByKbId(Long kbId) {
-        return list(new LambdaQueryWrapper<DocChunk>()
-                .eq(DocChunk::getKbId, kbId));
+        LambdaQueryWrapper<DocChunk> lambdaQueryWrapper = Wrappers.<DocChunk>lambdaQuery()
+                .eq(DocChunk::getKbId, kbId);
+        return list(lambdaQueryWrapper);
     }
 
     @Override
     public boolean deleteByDocId(Long docId) {
-        return remove(new LambdaQueryWrapper<DocChunk>()
-                .eq(DocChunk::getDocId, docId));
+        LambdaQueryWrapper<DocChunk> lambdaQueryWrapper = Wrappers.<DocChunk>lambdaQuery()
+                .eq(DocChunk::getDocId, docId);
+        return remove(lambdaQueryWrapper);
     }
 
     @Override
     public List<DocChunk> findByIds(List<Long> ids) {
-        return list(new LambdaQueryWrapper<DocChunk>()
-                .in(DocChunk::getId, ids));
+        LambdaQueryWrapper<DocChunk> lambdaQueryWrapper = Wrappers.<DocChunk>lambdaQuery()
+                .in(DocChunk::getId, ids);
+        return list(lambdaQueryWrapper);
     }
 
     @Override
-    public List<DocChunk> findByVectorSimilarity(Long kbId, String embedding, int topK) {
-        return baseMapper.findByVectorSimilarity(kbId, embedding, topK);
+    public List<DocChunk> findByVectorSimilarityMultiKb(List<Long> kbIds, String embedding, int topK, Integer globalTopK) {
+        return baseMapper.findByVectorSimilarityMultiKb(kbIds, embedding, topK, globalTopK);
     }
 
     @Override

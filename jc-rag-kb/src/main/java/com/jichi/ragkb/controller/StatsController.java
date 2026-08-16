@@ -15,10 +15,9 @@ import java.util.Map;
  * 提供用户 Token 消耗统计查询
  */
 @RestController
-@RequestMapping("/api/v1/stats")
 @RequiredArgsConstructor
+@RequestMapping("/api/v1/stats")
 public class StatsController {
-
     private final TokenMetrics tokenMetrics;
 
     /**

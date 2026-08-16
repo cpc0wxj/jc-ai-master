@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.KbDocument;
 import com.jichi.ragkb.mapper.KbDocumentMapper;
@@ -37,7 +38,7 @@ public class KbDocumentRepositoryImpl extends ServiceImpl<KbDocumentMapper, KbDo
 
     @Override
     public long countByStatus(KbDocument.DocumentStatus status) {
-        LambdaQueryWrapper<KbDocument> lambdaQueryWrapper = new LambdaQueryWrapper<KbDocument>()
+        LambdaQueryWrapper<KbDocument> lambdaQueryWrapper = Wrappers.<KbDocument>lambdaQuery()
                 .eq(KbDocument::getStatus, status)
                 .eq(KbDocument::getIsDeleted, false);
 
@@ -46,7 +47,7 @@ public class KbDocumentRepositoryImpl extends ServiceImpl<KbDocumentMapper, KbDo
 
     @Override
     public List<KbDocument> findByKbIdAndIsDeletedFalse(Long kbId) {
-        LambdaQueryWrapper<KbDocument> lambdaQueryWrapper = new LambdaQueryWrapper<KbDocument>()
+        LambdaQueryWrapper<KbDocument> lambdaQueryWrapper = Wrappers.<KbDocument>lambdaQuery()
                 .eq(KbDocument::getKbId, kbId)
                 .eq(KbDocument::getIsDeleted, false);
 
@@ -55,7 +56,8 @@ public class KbDocumentRepositoryImpl extends ServiceImpl<KbDocumentMapper, KbDo
 
     @Override
     public List<KbDocument> findAllById(Collection<Long> ids) {
-        return list(new LambdaQueryWrapper<KbDocument>()
-                .in(KbDocument::getId, ids));
+        LambdaQueryWrapper<KbDocument> lambdaQueryWrapper = Wrappers.<KbDocument>lambdaQuery()
+                .in(KbDocument::getId, ids);
+        return list(lambdaQueryWrapper);
     }
 }

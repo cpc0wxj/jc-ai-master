@@ -14,16 +14,13 @@ import org.springframework.http.HttpStatus;
  */
 @Configuration
 public class SecurityConfig {
-
     @Bean
     public SaServletFilter saServletFilter() {
         return new SaServletFilter()
-                .addInclude("/**")
+                .addExclude("/**")
                 .addExclude("/actuator/**", "/api/v1/auth/**")
-                .setAuth(obj -> {
-                    SaRouter.match("/api/**", () -> StpUtil.checkLogin());
-                })
-                .setError(e -> {
+                .setAuth(obj -> SaRouter.match("/api/**", StpUtil::checkLogin))
+                .setError(error -> {
                     SaHolder.getResponse().setStatus(HttpStatus.UNAUTHORIZED.value());
                     return "{\"code\":401,\"message\":\"请先登录\"}";
                 });

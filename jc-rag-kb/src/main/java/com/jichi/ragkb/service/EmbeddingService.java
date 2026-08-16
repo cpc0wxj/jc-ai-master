@@ -1,6 +1,7 @@
 package com.jichi.ragkb.service;
 
 import cn.hutool.core.collection.CollStreamUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.ArrayUtil;
@@ -59,7 +60,7 @@ public class EmbeddingService {
     /**
      * 单次 API 请求的最大文本数量，避免单次请求过大导致超限或超时
      */
-    private static final int BATCH_SIZE = 20;
+    private static final int BATCH_SIZE = 10;
 
     /**
      * 单条文本向量化，带 Redis 缓存
@@ -68,7 +69,8 @@ public class EmbeddingService {
      * @return 向量数组
      */
     public float[] embed(String text) {
-        return embedBatch(List.of(text)).get(0);
+        List<float[]> embeddingList = embedBatch(List.of(text));
+        return CollUtil.getFirst(embeddingList);
     }
 
     /**

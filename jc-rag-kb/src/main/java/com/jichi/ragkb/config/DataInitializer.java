@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,7 @@ import java.nio.charset.StandardCharsets;
  */
 @Slf4j
 @Component
+@Profile("dev")
 @RequiredArgsConstructor
 public class DataInitializer implements ApplicationRunner {
     private final KbDocumentRepository kbDocumentRepository;
@@ -34,21 +36,21 @@ public class DataInitializer implements ApplicationRunner {
 
         log.info("DataInitializer.run 开始初始化测试文档");
 
-        initDocument(1L, "hr-handbook.txt", "employee-handbook.txt", "TXT", 1L, "test-docs/hr-handbook.txt");
-        initDocument(2L, "tech-spec.txt", "tech-specification.txt", "TXT", 2L, "test-docs/tech-spec.txt");
-        initDocument(3L, "product-faq.txt", "product-faq.txt", "TXT", 3L, "test-docs/product-faq.txt");
+        initDocument(1L, "hr-handbook.txt", "employee-handbook.txt", 1L, "test-docs/hr-handbook.txt");
+        initDocument(2L, "tech-spec.txt", "tech-specification.txt", 2L, "test-docs/tech-spec.txt");
+        initDocument(3L, "product-faq.txt", "product-faq.txt", 3L, "test-docs/product-faq.txt");
 
         log.info("DataInitializer.run 测试文档初始化完成，等待异步索引");
     }
 
-    private void initDocument(Long kbId, String minioPath, String fileName, String fileType, Long uploadedBy, String classpath) throws IOException {
+    private void initDocument(Long kbId, String minioPath, String fileName, Long uploadedBy, String classpath) throws IOException {
         ClassPathResource resource = new ClassPathResource(classpath);
         byte[] content = resource.getInputStream().readAllBytes();
 
         KbDocument kbDocument = new KbDocument()
                 .setKbId(kbId)
                 .setFileName(fileName)
-                .setFileType(fileType)
+                .setFileType("TXT")
                 .setFileSize((long) content.length)
                 .setMinioPath(minioPath)
                 .setUploadedBy(uploadedBy);

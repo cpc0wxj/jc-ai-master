@@ -1,6 +1,7 @@
 package com.jichi.ragkb.repository.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.jichi.ragkb.entity.KnowledgeBase;
 import com.jichi.ragkb.mapper.KnowledgeBaseMapper;
@@ -32,27 +33,31 @@ public class KnowledgeBaseRepositoryImpl extends ServiceImpl<KnowledgeBaseMapper
 
     @Override
     public List<KnowledgeBase> findByIsDeletedFalse() {
-        return list(new LambdaQueryWrapper<KnowledgeBase>()
-                .eq(KnowledgeBase::getIsDeleted, false));
+        LambdaQueryWrapper<KnowledgeBase> lambdaQueryWrapper = Wrappers.<KnowledgeBase>lambdaQuery()
+                .eq(KnowledgeBase::getIsDeleted, false);
+        return list(lambdaQueryWrapper);
     }
 
     @Override
     public List<KnowledgeBase> findByDepartmentIdAndIsDeletedFalse(String departmentId) {
-        return list(new LambdaQueryWrapper<KnowledgeBase>()
+        LambdaQueryWrapper<KnowledgeBase> lambdaQueryWrapper = Wrappers.<KnowledgeBase>lambdaQuery()
                 .eq(KnowledgeBase::getDepartmentId, departmentId)
-                .eq(KnowledgeBase::getIsDeleted, false));
+                .eq(KnowledgeBase::getIsDeleted, false);
+        return list(lambdaQueryWrapper);
     }
 
     @Override
     public List<KnowledgeBase> findByIsPublicTrueAndIsDeletedFalse() {
-        return list(new LambdaQueryWrapper<KnowledgeBase>()
+        LambdaQueryWrapper<KnowledgeBase> lambdaQueryWrapper = Wrappers.<KnowledgeBase>lambdaQuery()
                 .eq(KnowledgeBase::getIsPublic, true)
-                .eq(KnowledgeBase::getIsDeleted, false));
+                .eq(KnowledgeBase::getIsDeleted, false);
+        return list(lambdaQueryWrapper);
     }
 
     @Override
     public List<KnowledgeBase> findAllById(Collection<Long> ids) {
-        return list(new LambdaQueryWrapper<KnowledgeBase>()
-                .in(KnowledgeBase::getId, ids));
+        LambdaQueryWrapper<KnowledgeBase> lambdaQueryWrapper = Wrappers.<KnowledgeBase>lambdaQuery()
+                .in(KnowledgeBase::getId, ids);
+        return list(lambdaQueryWrapper);
     }
 }

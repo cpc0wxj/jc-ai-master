@@ -50,9 +50,8 @@ public class EnhancedRetrieverService {
         float[] hydeEmbedding = embeddingService.embed(hydeAnswer);
         String hydeEmbeddingStr = toVectorString(hydeEmbedding);
 
-        List<DocChunk> hydeResults = kbIds.stream()
-                .flatMap(kbId -> docChunkRepository.findByVectorSimilarity(kbId, hydeEmbeddingStr, vectorTopK).stream())
-                .collect(Collectors.toList());
+        // 单次 SQL 完成多知识库检索：每个知识库取 TopK，不限制全局数量（后续 RRF 融合自行排序）
+        List<DocChunk> hydeResults = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, hydeEmbeddingStr, vectorTopK, null);
 
         log.debug("EnhancedRetrieverService.retrieveWithHyde originalResults={},hydeResults={}",
                 originalResults.size(), hydeResults.size());

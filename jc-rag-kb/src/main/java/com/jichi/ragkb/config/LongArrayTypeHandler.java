@@ -17,7 +17,6 @@ import java.sql.SQLException;
  */
 @MappedTypes(Long[].class)
 public class LongArrayTypeHandler extends BaseTypeHandler<Long[]> {
-
     @Override
     public void setNonNullParameter(PreparedStatement ps, int i, Long[] parameter, JdbcType jdbcType) throws SQLException {
         Connection conn = ps.getConnection();

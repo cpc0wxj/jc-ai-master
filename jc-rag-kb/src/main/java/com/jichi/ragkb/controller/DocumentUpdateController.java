@@ -19,7 +19,6 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequiredArgsConstructor
 public class DocumentUpdateController {
-
     private final PermissionService permissionService;
     private final DocumentUpdateService documentUpdateService;
 
@@ -27,12 +26,10 @@ public class DocumentUpdateController {
      * 替换文档内容（文档 ID 不变），触发新版本索引
      */
     @PutMapping("/api/v1/kb/{kbId}/documents/{docId}/content")
-    public ApiResponse<KbDocument> replaceContent(
-            @PathVariable Long kbId,
-            @PathVariable Long docId,
-            @RequestParam("file") MultipartFile file) {
+    public ApiResponse<KbDocument> replaceContent(@PathVariable Long kbId, @PathVariable Long docId, @RequestParam("file") MultipartFile file) {
         permissionService.requireWrite(kbId);
-        return ApiResponse.ok(documentUpdateService.replaceDocument(docId, file));
+        KbDocument kbDocument = documentUpdateService.replaceDocument(docId, file);
+        return ApiResponse.ok(kbDocument);
     }
 
     /**
@@ -40,9 +37,7 @@ public class DocumentUpdateController {
      * 与「上传后首次索引」不同，这里是显式触发
      */
     @PostMapping("/api/v1/kb/{kbId}/documents/{docId}/reindex-force")
-    public ApiResponse<Void> forceReindex(
-            @PathVariable Long kbId,
-            @PathVariable Long docId) {
+    public ApiResponse<Void> forceReindex(@PathVariable Long kbId, @PathVariable Long docId) {
         permissionService.requireWrite(kbId);
         documentUpdateService.forceReindexAndSubmit(docId);
         return ApiResponse.ok(null);

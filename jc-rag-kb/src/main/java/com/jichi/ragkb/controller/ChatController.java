@@ -32,8 +32,8 @@ import java.util.concurrent.Executors;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
+@RequestMapping("/api/v1/chat")
 public class ChatController {
     private final StreamingRagService streamingRagService;
     private final ChatSessionService chatSessionService;
@@ -55,14 +55,11 @@ public class ChatController {
      *   const es = new EventSource('/api/v1/chat/stream?sessionId=xxx&kbIds=1,2&question=...')
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamChat(
-            @RequestParam String question,
-            @RequestParam List<Long> kbIds,
-            @RequestParam(required = false) String sessionId) {
-
+    public SseEmitter streamChat(@RequestParam String question, @RequestParam List<Long> kbIds, @RequestParam(required = false) String sessionId) {
         // 校验权限
-        kbIds.forEach(permissionService::requireRead);
-
+        for (Long kbId : kbIds) {
+            permissionService.requireRead(kbId);
+        }
         // 创建或获取会话
         String sid = chatSessionService.getOrCreateSession(sessionId, kbIds);
 

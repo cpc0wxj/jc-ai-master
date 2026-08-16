@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
-
     @ExceptionHandler(BizException.class)
     public ResponseEntity<ApiResponse<Void>> handleBizException(BizException e) {
         log.warn("GlobalExceptionHandler.handleBizException code={},message={}", e.getCode(), e.getMessage());

@@ -13,11 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -35,7 +31,9 @@ public class HybridRetrieverService {
     private final KbPermissionRepository kbPermissionRepository;
     private final RagRetrievalProperties ragRetrievalProperties;
 
-    /** RRF 平滑参数，通常取 60 */
+    /**
+     * RRF 平滑参数，通常取 60
+     */
     private static final int RRF_K = 60;
 
     /**
@@ -54,9 +52,8 @@ public class HybridRetrieverService {
         float[] queryEmbedding = embeddingService.embed(question);
         String embeddingStr = toVectorString(queryEmbedding);
 
-        List<DocChunk> vectorResults = kbIds.stream()
-                .flatMap(kbId -> docChunkRepository.findByVectorSimilarity(kbId, embeddingStr, vectorTopK).stream())
-                .collect(Collectors.toList());
+        // 单次 SQL 完成多知识库检索：每个知识库取 TopK，不限制全局数量（后续 RRF 融合自行排序）
+        List<DocChunk> vectorResults = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, embeddingStr, vectorTopK, null);
 
         // Step 2：全文检索
         String tsQuery = tsQueryBuilder.build(question);

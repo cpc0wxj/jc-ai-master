@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * 权限服务
@@ -32,21 +33,16 @@ public class PermissionService {
 
         // 知识库是公开的——直接放行
         KnowledgeBase knowledgeBase = knowledgeBaseRepository.findById(kbId);
-        boolean isPublic = Objects.nonNull(knowledgeBase) && Boolean.TRUE.equals(knowledgeBase.getIsPublic());
-        if (isPublic) {
+        Boolean isPublic = Optional.ofNullable(knowledgeBase).map(KnowledgeBase::getIsPublic).orElse(null);
+        if (Objects.equals(isPublic, Boolean.TRUE)) {
             return;
         }
 
         // 检查用户或部门权限
-        String userId = String.valueOf(UserContext.getUserId());
-        String deptId = UserContext.getDepartmentId();
+        boolean flag1 = kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(kbId, "USER", String.valueOf(UserContext.getUserId()));
+        boolean flag2= kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(kbId, "DEPARTMENT", UserContext.getDepartmentId());
 
-        boolean hasPermission = kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(
-                kbId, "USER", userId)
-                || kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(
-                kbId, "DEPARTMENT", deptId);
-
-        if (!hasPermission) {
+        if (!flag1 && !flag2) {
             throw BizException.forbidden("无权访问该知识库");
         }
     }
@@ -59,17 +55,10 @@ public class PermissionService {
             return;
         }
 
-        String userId = String.valueOf(UserContext.getUserId());
-        String deptId = UserContext.getDepartmentId();
+        boolean flag1 = kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectIdAndPermissionIn(kbId, "USER", String.valueOf(UserContext.getUserId()), List.of("WRITE", "ADMIN"));
+        boolean flag2 = kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectIdAndPermissionIn(kbId, "DEPARTMENT", UserContext.getDepartmentId(), List.of("WRITE", "ADMIN"));
 
-        boolean hasWritePermission = kbPermissionRepository
-                .existsByKbIdAndSubjectTypeAndSubjectIdAndPermissionIn(
-                        kbId, "USER", userId, List.of("WRITE", "ADMIN"))
-                || kbPermissionRepository
-                .existsByKbIdAndSubjectTypeAndSubjectIdAndPermissionIn(
-                        kbId, "DEPARTMENT", deptId, List.of("WRITE", "ADMIN"));
-
-        if (!hasWritePermission) {
+        if (!flag1 && !flag2) {
             throw BizException.forbidden("无文档管理权限");
         }
     }

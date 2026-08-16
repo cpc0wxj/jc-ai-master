@@ -31,8 +31,8 @@ import java.util.Objects;
  * 提供评估触发、历史对比、评估数据集管理和 Chunk 查询功能
  */
 @RestController
-@RequestMapping("/api/v1/eval")
 @RequiredArgsConstructor
+@RequestMapping("/api/v1/eval")
 public class EvalController {
     private final EvalService evalService;
     private final EvalDatasetRepository evalDatasetRepository;
