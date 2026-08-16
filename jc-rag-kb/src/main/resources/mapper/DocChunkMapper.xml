@@ -52,32 +52,33 @@
     <!-- ts_rank 排序确保最相关结果在前，实际分数由调用方用 RRF 融合处理 -->
     <!-- 使用 ROW_NUMBER() OVER (PARTITION BY kb_id) 对每个知识库单独排名，外层再按相关性全局排序取前 topK -->
     <select id="findByFullTextSearchMultiKb" resultMap="DocChunkResultMap">
-        SELECT kb_doc_chunk.id,
-               kb_doc_chunk.doc_id,
-               kb_doc_chunk.kb_id,
-               kb_doc_chunk.chunk_index,
-               kb_doc_chunk.content,
-               kb_doc_chunk.embedding,
-               kb_doc_chunk.page_num,
-               kb_doc_chunk.section_title,
-               kb_doc_chunk.token_count,
-               kb_doc_chunk.doc_version,
-               kb_doc_chunk.created_at
+        SELECT id,
+               doc_id,
+               kb_id,
+               chunk_index,
+               content,
+               embedding,
+               page_num,
+               section_title,
+               token_count,
+               doc_version,
+               created_at
         FROM (
-            SELECT kb_doc_chunk.*,
-                   ROW_NUMBER() OVER (PARTITION BY kb_doc_chunk.kb_id ORDER BY ts_rank(kb_doc_chunk.content_tsv, to_tsquery('simple', #{tsQuery})) DESC) as kb_rank
-            FROM kb_doc_chunk
-            JOIN kb_document ON kb_doc_chunk.doc_id = kb_document.id
-            WHERE kb_doc_chunk.kb_id IN (
-                <foreach collection="kbIds" item="kbId" separator="," open="" close="">
-                    #{kbId}
-                </foreach>)
-                AND kb_doc_chunk.doc_version = kb_document.version
-                AND kb_document.is_deleted = FALSE
-                AND kb_doc_chunk.content_tsv @@ to_tsquery('simple', #{tsQuery})
-        ) ranked
-        WHERE kb_rank <![CDATA[<=]]> #{topK}
-        ORDER BY kb_rank, ts_rank(kb_doc_chunk.content_tsv, to_tsquery('simple', #{tsQuery})) DESC
+        SELECT kb_doc_chunk.*,
+               ROW_NUMBER()
+               OVER (PARTITION BY kb_doc_chunk.kb_id ORDER BY ts_rank(kb_doc_chunk.content_tsv, to_tsquery('simple', #{tsQuery})) DESC) as kb_rank
+        FROM kb_doc_chunk
+                 JOIN kb_document ON kb_doc_chunk.doc_id = kb_document.id
+        WHERE kb_doc_chunk.kb_id IN (
+        <foreach collection="kbIds" item="kbId" separator="," open="" close="">
+            #{kbId}
+        </foreach>)
+                    AND kb_doc_chunk.doc_version = kb_document.version
+                    AND kb_document.is_deleted = FALSE
+                    AND kb_doc_chunk.content_tsv @@ to_tsquery('simple', #{tsQuery})
+    ) ranked
+    WHERE kb_rank <![CDATA[<=]]> #{topK}
+    ORDER BY kb_rank, ts_rank(ranked.content_tsv, to_tsquery('simple', #{tsQuery})) DESC
         <if test="globalTopK != null">
             LIMIT #{globalTopK}
         </if>

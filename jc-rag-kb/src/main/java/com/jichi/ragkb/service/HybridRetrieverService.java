@@ -1,5 +1,6 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.collection.CollStreamUtil;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.StrUtil;
 import com.jichi.ragkb.config.RagRetrievalProperties;
@@ -82,9 +83,7 @@ public class HybridRetrieverService {
      * 权限安全的混合检索——在调用前过滤 kbIds
      * 用户传入 kbIds，只有实际有权限的才会被检索
      */
-    public List<ScoredChunk> retrieveWithPermissionCheck(
-            String question, List<Long> requestedKbIds, int topN) {
-
+    public List<ScoredChunk> retrieveWithPermissionCheck(String question, List<Long> requestedKbIds, int topN) {
         List<Long> allowedKbIds = filterAllowedKbIds(requestedKbIds);
 
         if (allowedKbIds.isEmpty()) {
@@ -107,21 +106,19 @@ public class HybridRetrieverService {
             return kbIds;
         }
 
-        String userId = String.valueOf(UserContext.getUserId());
-        String deptId = UserContext.getDepartmentId();
-
-        return kbIds.stream()
-                .filter(kbId -> {
+        return CollStreamUtil.toList(kbIds,
+                kbId -> {
                     KnowledgeBase knowledgeBase = knowledgeBaseRepository.findById(kbId);
                     boolean isPublic = Objects.nonNull(knowledgeBase) && Boolean.TRUE.equals(knowledgeBase.getIsPublic());
                     if (isPublic) {
-                        return true;
+                        return kbId;
                     }
 
-                    return kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(kbId, "USER", userId)
-                            || kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(kbId, "DEPARTMENT", deptId);
-                })
-                .toList();
+                    boolean flag = kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(kbId, "USER", String.valueOf(UserContext.getUserId()))
+                            || kbPermissionRepository.existsByKbIdAndSubjectTypeAndSubjectId(kbId, "DEPARTMENT", UserContext.getDepartmentId());
+
+                    return flag ? kbId : null;
+                });
     }
 
     /**
