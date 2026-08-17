@@ -1,13 +1,15 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.collection.CollStreamUtil;
 import com.jichi.ragkb.config.RagRetrievalProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 置信度过滤器
@@ -24,27 +26,29 @@ public class ConfidenceFilter {
      * 过滤低置信度的 chunk
      * 如果过滤后为空，保留分数最高的 1 个（不能完全没有内容）
      */
-    public List<HybridRetrieverService.ScoredChunk> filter(List<HybridRetrieverService.ScoredChunk> chunks) {
-        double minScore = ragRetrievalProperties.getMinScore();
-
-        List<HybridRetrieverService.ScoredChunk> filtered = chunks.stream()
-                .filter(c -> c.score() >= minScore)
-                .collect(Collectors.toList());
-
-        if (filtered.isEmpty() && !chunks.isEmpty()) {
-            // 至少保留分数最高的 1 个（上游已排序，但以防万一用 max 取最高分）
-            HybridRetrieverService.ScoredChunk scoredChunk = chunks.stream()
-                    .max(Comparator.comparingDouble(HybridRetrieverService.ScoredChunk::score))
-                    .orElse(chunks.get(0));
-            log.debug("ConfidenceFilter.filter allBelowThreshold minScore={},bestScore={}", minScore, scoredChunk.score());
-            filtered = List.of(scoredChunk);
+    public List<HybridRetrieverService.ScoredChunk> filter(List<HybridRetrieverService.ScoredChunk> scoredChunkList) {
+        if (CollectionUtils.isEmpty(scoredChunkList)) {
+            return Collections.emptyList();
         }
 
-        int filteredCount = chunks.size() - filtered.size();
+        List<HybridRetrieverService.ScoredChunk> filteredChunkList = CollStreamUtil.toList(scoredChunkList,
+                temp -> temp.score() >= ragRetrievalProperties.getMinScore() ? temp : null);
+
+        // 若过滤结果为空
+        if (CollectionUtils.isEmpty(filteredChunkList)) {
+            // 至少保留分数最高的 1 个（上游已排序，但以防万一用 max 取最高分）
+            HybridRetrieverService.ScoredChunk scoredChunk = scoredChunkList.stream()
+                    .max(Comparator.comparingDouble(HybridRetrieverService.ScoredChunk::score))
+                    .orElse(scoredChunkList.getFirst());
+            log.debug("ConfidenceFilter.filter allBelowThreshold minScore={},bestScore={}", ragRetrievalProperties.getMinScore(), scoredChunk.score());
+            filteredChunkList = List.of(scoredChunk);
+        }
+
+        int filteredCount = scoredChunkList.size() - filteredChunkList.size();
         if (filteredCount > 0) {
             log.debug("ConfidenceFilter.filter filteredCount={}", filteredCount);
         }
 
-        return filtered;
+        return filteredChunkList;
     }
 }

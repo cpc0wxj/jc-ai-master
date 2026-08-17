@@ -1,14 +1,17 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.util.StrUtil;
 import com.jichi.ragkb.config.RerankerProperties;
 import com.jichi.ragkb.dto.RagResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * 完整 RAG 管线
@@ -30,34 +33,28 @@ public class FullRagPipeline {
     public RagResponse query(String question, List<Long> kbIds) {
         long pipelineStart = System.currentTimeMillis();
 
-        // Step 1：增强检索（混合检索 + HyDE）
-        List<HybridRetrieverService.ScoredChunk> candidates = enhancedRetrieverService.retrieveWithHyde(question, kbIds, 20);
-
-        if (candidates.isEmpty()) {
+        // 增强检索（混合检索 + HyDE）
+        List<HybridRetrieverService.ScoredChunk> scoredChunkList = enhancedRetrieverService.retrieveWithHyde(question, kbIds, 20);
+        if (CollectionUtils.isEmpty(scoredChunkList)) {
             return RagResponse.notFound();
         }
-
-        // Step 2：Reranker 精排
-        List<HybridRetrieverService.ScoredChunk> reranked = rerankerService.rerank(question, candidates, rerankerProperties.getTopN());
-
-        // Step 3：置信度过滤
-        List<HybridRetrieverService.ScoredChunk> filtered = confidenceFilter.filter(reranked);
-
-        if (filtered.isEmpty()) {
+        // Reranker 精排
+        scoredChunkList = rerankerService.rerank(question, scoredChunkList, rerankerProperties.getTopN());
+        // 置信度过滤
+        scoredChunkList = confidenceFilter.filter(scoredChunkList);
+        if (CollectionUtils.isEmpty(scoredChunkList)) {
             return RagResponse.notFound();
         }
+        // 上下文裁剪（控制 Token 预算）
+        scoredChunkList = contextTrimmerService.trim(scoredChunkList);
+        // 构建带引用编号的 context + 用 RagPromptTemplate 生成 System Prompt
+        String context = buildContext(scoredChunkList);
+        String answer = generateAnswer(question, context, scoredChunkList.size());
 
-        // Step 4：上下文裁剪（控制 Token 预算）
-        List<HybridRetrieverService.ScoredChunk> trimmed = contextTrimmerService.trim(filtered);
+        // 用 SourceBuilder 解析引用标注，关联到文档信息
+        List<RagResponse.Source> sourceList = sourceBuilder.buildSources(answer, scoredChunkList);
 
-        // Step 5：构建带引用编号的 context + 用 RagPromptTemplate 生成 System Prompt
-        String context = buildContext(trimmed);
-        String answer = generateAnswer(question, context, trimmed.size());
-
-        // Step 6：用 SourceBuilder 解析引用标注，关联到文档信息
-        List<RagResponse.Source> sources = sourceBuilder.buildSources(answer, trimmed);
-
-        // Step 7：幻觉检测（抽样，每 5 次查询跑 1 次，避免增加太多成本）
+        // 幻觉检测（抽样，每 5 次查询跑 1 次，避免增加太多成本）
         if (System.currentTimeMillis() % 5 == 0) {
             var faithResult = hallucinationChecker.check(question, answer, context);
             if (!faithResult.isFaithful()) {
@@ -66,25 +63,23 @@ public class FullRagPipeline {
         }
 
         long elapsed = System.currentTimeMillis() - pipelineStart;
-        log.info("FullRagPipeline.query question={},elapsed={},sources={}", question.substring(0, Math.min(30, question.length())), elapsed, sources.size());
+        log.info("FullRagPipeline.query question={},elapsed={},sourceList={}", question.substring(0, Math.min(30, question.length())), elapsed, sourceList.size());
 
         return new RagResponse()
                 .setAnswer(answer)
-                .setSources(sources)
+                .setSources(sourceList)
                 .setLatencyMs((int) elapsed);
     }
 
     private String buildContext(List<HybridRetrieverService.ScoredChunk> chunks) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < chunks.size(); i++) {
-            var sc = chunks.get(i);
-            sb.append("[参考").append(i + 1).append("]");
-            if (Objects.nonNull(sc.chunk().getSectionTitle())) {
-                sb.append(" ").append(sc.chunk().getSectionTitle());
-            }
-            sb.append("\n").append(sc.content()).append("\n\n");
-        }
-        return sb.toString().strip();
+        return IntStream.range(0, chunks.size())
+                .mapToObj(i -> {
+                    HybridRetrieverService.ScoredChunk sc = chunks.get(i);
+                    String title = StrUtil.isBlank(sc.chunk().getSectionTitle()) ? "" : " " + sc.chunk().getSectionTitle();
+                    return StrUtil.format("[参考{}]{}\n{}", i + 1, title, sc.content());
+                })
+                .collect(Collectors.joining("\n\n"))
+                .strip();
     }
 
     private String generateAnswer(String question, String context, int chunkCount) {

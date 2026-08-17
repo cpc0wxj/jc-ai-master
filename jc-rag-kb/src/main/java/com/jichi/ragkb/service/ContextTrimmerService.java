@@ -25,9 +25,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ContextTrimmerService {
-    private final RagContextProperties ragContextProperties;
-    private final TokenMetrics tokenMetrics;
     private Encoding encoding;
+    private final TokenMetrics tokenMetrics;
+    private final RagContextProperties ragContextProperties;
 
     @PostConstruct
     public void init() {
