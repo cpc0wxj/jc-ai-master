@@ -2,6 +2,7 @@ package com.jichi.ragkb.controller;
 
 import com.jichi.ragkb.dto.ApiResponse;
 import com.jichi.ragkb.dto.RagQueryRequest;
+import com.jichi.ragkb.dto.RagResponse;
 import com.jichi.ragkb.service.FullRagPipeline;
 import com.jichi.ragkb.service.RagQueryService;
 import com.jichi.ragkb.service.RagQueryServiceV2;
@@ -28,11 +29,11 @@ public class RagQueryController {
 
     private final FullRagPipeline fullRagPipeline;
 
-    @PostMapping("/query")
-    public ApiResponse<String> query(@RequestBody RagQueryRequest ragQueryRequest) {
-        String result = ragQueryService.query(ragQueryRequest.getQuestion(), ragQueryRequest.getKbIdList());
-        return ApiResponse.ok(result);
-    }
+//    @PostMapping("/query")
+//    public ApiResponse<String> query(@RequestBody RagQueryRequest ragQueryRequest) {
+//        String result = ragQueryService.query(ragQueryRequest.getQuestion(), ragQueryRequest.getKbIdList());
+//        return ApiResponse.ok(result);
+//    }
 
 //    @PostMapping("/query")
 //    public ApiResponse<String> query(@RequestBody RagQueryRequest req) {
@@ -40,14 +41,15 @@ public class RagQueryController {
 //        return ApiResponse.ok(result);
 //    }
 
-    //    @PostMapping("/query")
-    //    public ApiResponse<String> query(@RequestBody RagQueryRequest req) {
-    //        return ApiResponse.ok(ragQueryServiceV3.query(req.getQuestion(), req.getKbIds()));
-    //    }
+//    @PostMapping("/query")
+//    public ApiResponse<String> query(@RequestBody RagQueryRequest req) {
+//        String result = ragQueryServiceV3.query(req.getQuestion(), req.getKbIdList());
+//        return ApiResponse.ok(result);
+//    }
 
-    // @PostMapping("/query")
-    // public ApiResponse<RagResponse> query(@RequestBody RagQueryRequest req) {
-    //     RagResponse result = fullRagPipeline.query(req.getQuestion(), req.getKbIds());
-    //     return ApiResponse.ok(result);
-    // }
+    @PostMapping("/query")
+    public ApiResponse<RagResponse> query(@RequestBody RagQueryRequest req) {
+        RagResponse result = fullRagPipeline.query(req.getQuestion(), req.getKbIdList());
+        return ApiResponse.ok(result);
+    }
 }
