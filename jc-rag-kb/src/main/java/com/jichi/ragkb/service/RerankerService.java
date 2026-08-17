@@ -4,7 +4,6 @@ import cn.hutool.core.collection.CollStreamUtil;
 import cn.hutool.core.collection.CollUtil;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.jichi.ragkb.config.RerankerProperties;
-import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -54,7 +53,7 @@ public class RerankerService {
         }
 
         try {
-            List<HybridRetrieverService.ScoredChunk> reranked = callRerankApi(question, scoredChunkList, topN);
+            List<HybridRetrieverService.ScoredChunk> reranked = doRerank(question, scoredChunkList, topN);
             log.info("RerankerService.rerank scoredChunkList={},returned={}", scoredChunkList.size(), reranked.size());
             return reranked;
         } catch (Exception e) {
@@ -66,14 +65,22 @@ public class RerankerService {
         }
     }
 
-    private List<HybridRetrieverService.ScoredChunk> callRerankApi(String question, List<HybridRetrieverService.ScoredChunk> scoredChunkList, int topN) {
+    /**
+     * 调用 Reranker API 进行精排，返回按相关性分数排序的结果
+     *
+     * @param question        用户问题
+     * @param scoredChunkList 候选 chunk（混合检索结果）
+     * @param topN            精排后保留数量
+     * @return 精排后的 ScoredChunk 列表
+     */
+    private List<HybridRetrieverService.ScoredChunk> doRerank(String question, List<HybridRetrieverService.ScoredChunk> scoredChunkList, int topN) {
         // 构建请求体（DashScope gte-rerank-v2 要求嵌套格式）
         List<String> docList = CollStreamUtil.toList(scoredChunkList, HybridRetrieverService.ScoredChunk::content);
 
-        RerankInput rerankInput = new RerankInput()
+        RerankRequest.RerankInput rerankInput = new RerankRequest.RerankInput()
                 .setQuery(question)
                 .setDocuments(docList);
-        RerankParams rerankParams = new RerankParams()
+        RerankRequest.RerankParams rerankParams = new RerankRequest.RerankParams()
                 .setTopN(topN)
                 .setReturnDocuments(false);
         RerankRequest rerankRequest = new RerankRequest()
@@ -94,14 +101,14 @@ public class RerankerService {
                 .timeout(Duration.ofMillis(rerankerProperties.getTimeoutMs()))
                 .block();
 
-        Integer totalTokens = Optional.ofNullable(rerankResponse).map(RerankResponse::getUsage).map(RerankUsage::getTotalTokens).orElse(null);
+        Integer totalTokens = Optional.ofNullable(rerankResponse).map(RerankResponse::getUsage).map(RerankResponse.RerankUsage::getTotalTokens).orElse(null);
         if (Objects.nonNull(totalTokens) && totalTokens > 0) {
             tokenMetrics.recordContextTokens(totalTokens);
         }
 
         // 按精排分数组装结果
-        List<RerankResult> rerankResultList = Optional.ofNullable(rerankResponse).map(RerankResponse::getOutput).map(RerankOutput::getResults).orElse(null);
-        CollUtil.sort(rerankResultList, Comparator.comparingDouble(RerankResult::getRelevanceScore).reversed());
+        List<RerankResponse.RerankOutput.RerankResult> rerankResultList = Optional.ofNullable(rerankResponse).map(RerankResponse::getOutput).map(RerankResponse.RerankOutput::getResults).orElse(null);
+        CollUtil.sort(rerankResultList, Comparator.comparingDouble(RerankResponse.RerankOutput.RerankResult::getRelevanceScore).reversed());
         return CollStreamUtil.toList(rerankResultList,
                 temp -> {
                     HybridRetrieverService.ScoredChunk scoredChunk = scoredChunkList.get(temp.getIndex());
@@ -118,47 +125,51 @@ public class RerankerService {
         private String model;
         private RerankInput input;
         private RerankParams parameters;
+
+        @Getter
+        @Setter
+        @Accessors(chain = true)
+        static class RerankInput {
+            private String query;
+            private List<String> documents;
+        }
+
+        @Getter
+        @Setter
+        @Accessors(chain = true)
+        static class RerankParams {
+            @JsonProperty("top_n")
+            private int topN;
+            @JsonProperty("return_documents")
+            private boolean returnDocuments;
+        }
     }
 
     @Getter
     @Setter
-    @Accessors(chain = true)
-    static class RerankInput {
-        private String query;
-        private List<String> documents;
-    }
-
-    @Getter
-    @Setter
-    @Accessors(chain = true)
-    static class RerankParams {
-        @JsonProperty("top_n")
-        private int topN;
-        @JsonProperty("return_documents")
-        private boolean returnDocuments;
-    }
-
-    @Data
     static class RerankResponse {
         private RerankOutput output;
         private RerankUsage usage;
-    }
 
-    @Data
-    static class RerankOutput {
-        private List<RerankResult> results;
-    }
+        @Getter
+        @Setter
+        static class RerankOutput {
+            private List<RerankResult> results;
 
-    @Data
-    static class RerankResult {
-        private int index;
-        @JsonProperty("relevance_score")
-        private double relevanceScore;
-    }
+            @Getter
+            @Setter
+            static class RerankResult {
+                private int index;
+                @JsonProperty("relevance_score")
+                private double relevanceScore;
+            }
+        }
 
-    @Data
-    static class RerankUsage {
-        @JsonProperty("total_tokens")
-        private int totalTokens;
+        @Getter
+        @Setter
+        static class RerankUsage {
+            @JsonProperty("total_tokens")
+            private int totalTokens;
+        }
     }
 }
