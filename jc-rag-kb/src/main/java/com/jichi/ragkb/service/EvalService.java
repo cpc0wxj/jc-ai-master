@@ -102,10 +102,8 @@ public class EvalService {
 
     private EvalResult evaluateOne(EvalDataset question, Long kbId, String evalVersion) {
         // 执行检索
-        List<HybridRetrieverService.ScoredChunk> candidates =
-                enhancedRetrieverService.retrieveWithHyde(question.getQuestion(), List.of(kbId), 20);
-        List<HybridRetrieverService.ScoredChunk> reranked =
-                rerankerService.rerank(question.getQuestion(), candidates, 10);
+        List<HybridRetrieverService.ScoredChunk> candidates = enhancedRetrieverService.retrieveWithHyde(question.getQuestion(), List.of(kbId), 20);
+        List<HybridRetrieverService.ScoredChunk> reranked = rerankerService.rerank(question.getQuestion(), candidates, 10);
 
         // 计算 Hit Rate 和 MRR
         Long[] expectedChunkIds = question.getExpectedChunkIds();

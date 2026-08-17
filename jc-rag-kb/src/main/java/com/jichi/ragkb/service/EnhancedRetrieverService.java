@@ -42,21 +42,21 @@ public class EnhancedRetrieverService {
      */
     public List<HybridRetrieverService.ScoredChunk> retrieveWithHyde(String question, List<Long> kbIds, int topN) {
         // 原始问题的混合检索结果
-        List<HybridRetrieverService.ScoredChunk> originalResults = hybridRetrieverService.retrieve(question, kbIds, ragRetrievalProperties.getVectorTopK());
+        List<HybridRetrieverService.ScoredChunk> scoredChunkList = hybridRetrieverService.retrieve(question, kbIds, ragRetrievalProperties.getVectorTopK());
         // HyDE 假设答案的向量检索结果
         String hydeAnswer = queryRewriterService.generateHypotheticalAnswer(question);
         float[] hydeEmbedding = embeddingService.embed(hydeAnswer);
         String hydeEmbeddingStr = StrUtil.format("[{}]", ArrayUtil.join(hydeEmbedding, ","));
         // 单次 SQL 完成多知识库检索：每个知识库取 TopK，不限制全局数量（后续 RRF 融合自行排序）
         List<DocChunk> hydeResultList = docChunkRepository.findByVectorSimilarityMultiKb(kbIds, hydeEmbeddingStr, ragRetrievalProperties.getVectorTopK(), null);
-        log.info("EnhancedRetrieverService.retrieveWithHyde originalResults={},hydeResultList={}", originalResults.size(), hydeResultList.size());
+        log.info("EnhancedRetrieverService.retrieveWithHyde scoredChunkList={},hydeResultList={}", scoredChunkList.size(), hydeResultList.size());
 
         // RRF 融合两路结果
         Map<Long, Double> scoreMap = Maps.newLinkedHashMap();
         Map<Long, DocChunk> chunkMap = Maps.newHashMap();
         // 原始结果按已有 RRF 分数参与融合
-        for (int i = 0; i < originalResults.size(); i++) {
-            HybridRetrieverService.ScoredChunk scoredChunk = originalResults.get(i);
+        for (int i = 0; i < scoredChunkList.size(); i++) {
+            HybridRetrieverService.ScoredChunk scoredChunk = scoredChunkList.get(i);
             double rrfScore = 1.0 / (RRF_K + i + 1);
             scoreMap.merge(scoredChunk.id(), rrfScore, Double::sum);
             chunkMap.put(scoredChunk.id(), scoredChunk.chunk());
@@ -72,7 +72,7 @@ public class EnhancedRetrieverService {
         return scoreMap.entrySet().stream()
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
                 .limit(topN)
-                .map(e -> new HybridRetrieverService.ScoredChunk(chunkMap.get(e.getKey()), e.getValue()))
+                .map(temp -> new HybridRetrieverService.ScoredChunk(chunkMap.get(temp.getKey()), temp.getValue()))
                 .collect(Collectors.toList());
     }
 }

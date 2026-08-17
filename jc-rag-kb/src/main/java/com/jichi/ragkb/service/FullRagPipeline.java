@@ -49,7 +49,13 @@ public class FullRagPipeline {
         scoredChunkList = contextTrimmerService.trim(scoredChunkList);
         // 构建带引用编号的 context + 用 RagPromptTemplate 生成 System Prompt
         String context = buildContext(scoredChunkList);
-        String answer = generateAnswer(question, context, scoredChunkList.size());
+        // 生成答案
+        String systemPrompt = RagPromptTemplate.buildSystemPrompt(context, scoredChunkList.size());
+        String answer = chatClient.prompt()
+                .system(systemPrompt)
+                .user(question)
+                .call()
+                .content();
 
         // 用 SourceBuilder 解析引用标注，关联到文档信息
         List<RagResponse.Source> sourceList = sourceBuilder.buildSources(answer, scoredChunkList);
@@ -71,24 +77,14 @@ public class FullRagPipeline {
                 .setLatencyMs((int) elapsed);
     }
 
-    private String buildContext(List<HybridRetrieverService.ScoredChunk> chunks) {
-        return IntStream.range(0, chunks.size())
+    private String buildContext(List<HybridRetrieverService.ScoredChunk> scoredChunkList) {
+        return IntStream.range(0, scoredChunkList.size())
                 .mapToObj(i -> {
-                    HybridRetrieverService.ScoredChunk sc = chunks.get(i);
+                    HybridRetrieverService.ScoredChunk sc = scoredChunkList.get(i);
                     String title = StrUtil.isBlank(sc.chunk().getSectionTitle()) ? "" : " " + sc.chunk().getSectionTitle();
                     return StrUtil.format("[参考{}]{}\n{}", i + 1, title, sc.content());
                 })
                 .collect(Collectors.joining("\n\n"))
                 .strip();
-    }
-
-    private String generateAnswer(String question, String context, int chunkCount) {
-        String systemPrompt = RagPromptTemplate.buildSystemPrompt(context, chunkCount);
-
-        return chatClient.prompt()
-                .system(systemPrompt)
-                .user(question)
-                .call()
-                .content();
     }
 }

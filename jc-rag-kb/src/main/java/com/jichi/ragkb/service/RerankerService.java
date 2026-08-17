@@ -74,7 +74,6 @@ public class RerankerService {
      * @return 精排后的 ScoredChunk 列表
      */
     private List<HybridRetrieverService.ScoredChunk> doRerank(String question, List<HybridRetrieverService.ScoredChunk> scoredChunkList, int topN) {
-        // 构建请求体（DashScope gte-rerank-v2 要求嵌套格式）
         List<String> docList = CollStreamUtil.toList(scoredChunkList, HybridRetrieverService.ScoredChunk::content);
 
         RerankRequest.RerankInput rerankInput = new RerankRequest.RerankInput()

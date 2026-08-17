@@ -1,5 +1,6 @@
 package com.jichi.ragkb.service;
 
+import cn.hutool.core.collection.CollStreamUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
@@ -8,6 +9,7 @@ import com.jichi.ragkb.entity.KbDocument;
 import com.jichi.ragkb.repository.KbDocumentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;
@@ -33,40 +35,38 @@ public class SourceBuilder {
      * 从模型回答中解析引用，关联到文档信息，构建来源列表
      *
      * @param answer 模型回答（含引用标注）
-     * @param chunks 传入模型的 chunk 列表（顺序对应 [参考N] 编号）
+     * @param scoredChunkList 传入模型的 chunk 列表（顺序对应 [参考N] 编号）
      * @return 被引用的来源列表（前端展示用）
      */
-    public List<RagResponse.Source> buildSources(String answer, List<HybridRetrieverService.ScoredChunk> chunks) {
+    public List<RagResponse.Source> buildSources(String answer, List<HybridRetrieverService.ScoredChunk> scoredChunkList) {
         // 解析被引用的 chunk 索引（1-based）
-        Set<Integer> citedIndices = citationParser.extractCitedIndices(answer);
+        Set<Integer> citedIndexSet = citationParser.extractCitedIndices(answer);
 
         // 如果模型没有标注引用（或标注不完整），把所有 chunk 都列为来源
-        if (citedIndices.isEmpty()) {
+        if (CollectionUtils.isEmpty(citedIndexSet)) {
             log.debug("SourceBuilder.buildSources noCitation usingAllChunks");
-            citedIndices = new LinkedHashSet<>();
-            for (int i = 1; i <= chunks.size(); i++) {
-                citedIndices.add(i);
+            citedIndexSet = new LinkedHashSet<>();
+            for (int i = 1; i <= scoredChunkList.size(); i++) {
+                citedIndexSet.add(i);
             }
         }
 
         // 批量查询文档信息（避免 N+1 查询）
-        Set<Long> docIds = chunks.stream()
-                .map(scoredChunk -> scoredChunk.chunk().getDocId())
-                .collect(Collectors.toSet());
-        Map<Long, KbDocument> docMap = kbDocumentRepository.findAllById(docIds).stream()
-                .collect(Collectors.toMap(KbDocument::getId, d -> d));
+        Set<Long> docIdSet = CollStreamUtil.toSet(scoredChunkList, scoredChunk -> scoredChunk.chunk().getDocId());
+        List<KbDocument> kbDocumentList = kbDocumentRepository.findAllById(docIdSet);
+        Map<Long, KbDocument> kbDocumentMap = CollStreamUtil.toIdentityMap(kbDocumentList, KbDocument::getId);
 
         // 组装来源信息
-        List<RagResponse.Source> sources = Lists.newArrayList();
-        for (int idx : citedIndices) {
-            if (idx < 1 || idx > chunks.size()) {
+        List<RagResponse.Source> sourceList = Lists.newArrayList();
+        for (int idx : citedIndexSet) {
+            if (idx < 1 || idx > scoredChunkList.size()) {
                 continue;
             }
 
-            HybridRetrieverService.ScoredChunk scoredChunk = chunks.get(idx - 1);
-            KbDocument kbDocument = docMap.get(scoredChunk.chunk().getDocId());
+            HybridRetrieverService.ScoredChunk scoredChunk = scoredChunkList.get(idx - 1);
+            KbDocument kbDocument = kbDocumentMap.get(scoredChunk.chunk().getDocId());
 
-            sources.add(new RagResponse.Source()
+            sourceList.add(new RagResponse.Source()
                     .setChunkId(scoredChunk.id())
                     .setDocId(scoredChunk.chunk().getDocId())
                     .setDocName(Objects.nonNull(kbDocument) ? kbDocument.getFileName() : "未知文档")
@@ -76,7 +76,7 @@ public class SourceBuilder {
                     .setScore(scoredChunk.score()));
         }
 
-        return sources;
+        return sourceList;
     }
 
     /**
