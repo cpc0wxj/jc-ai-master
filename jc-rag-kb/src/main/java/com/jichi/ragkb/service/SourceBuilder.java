@@ -54,19 +54,19 @@ public class SourceBuilder {
         // 批量查询文档信息（避免 N+1 查询）
         Set<Long> docIdSet = CollStreamUtil.toSet(scoredChunkList, scoredChunk -> scoredChunk.chunk().getDocId());
         List<KbDocument> kbDocumentList = kbDocumentRepository.findAllById(docIdSet);
-        Map<Long, KbDocument> kbDocumentMap = CollStreamUtil.toIdentityMap(kbDocumentList, KbDocument::getId);
 
         // 组装来源信息
-        List<RagResponse.Source> sourceList = Lists.newArrayList();
-        for (int idx : citedIndexSet) {
-            if (idx < 1 || idx > scoredChunkList.size()) {
+        List<RagResponse.Source> resultList = Lists.newArrayList();
+        Map<Long, KbDocument> kbDocumentMap = CollStreamUtil.toIdentityMap(kbDocumentList, KbDocument::getId);
+        for (int citedIndex : citedIndexSet) {
+            if (citedIndex < 1 || citedIndex > scoredChunkList.size()) {
                 continue;
             }
 
-            HybridRetrieverService.ScoredChunk scoredChunk = scoredChunkList.get(idx - 1);
+            HybridRetrieverService.ScoredChunk scoredChunk = scoredChunkList.get(citedIndex - 1);
             KbDocument kbDocument = kbDocumentMap.get(scoredChunk.chunk().getDocId());
 
-            sourceList.add(new RagResponse.Source()
+            resultList.add(new RagResponse.Source()
                     .setChunkId(scoredChunk.id())
                     .setDocId(scoredChunk.chunk().getDocId())
                     .setDocName(Objects.nonNull(kbDocument) ? kbDocument.getFileName() : "未知文档")
@@ -76,7 +76,7 @@ public class SourceBuilder {
                     .setScore(scoredChunk.score()));
         }
 
-        return sourceList;
+        return resultList;
     }
 
     /**

@@ -23,14 +23,6 @@ public class HallucinationChecker {
     private final ContextTrimmerService contextTrimmerService;
 
     /**
-     * 幻觉检测结果
-     */
-    public record FaithfulnessResult(boolean isFaithful,
-                                     double score,
-                                     String reason) {
-    }
-
-    /**
      * 检测答案是否忠实于参考内容
      *
      * @param question 用户问题
@@ -59,7 +51,6 @@ public class HallucinationChecker {
             tokenMetrics.recordGenerationTokens(genTokens);
 
             return parseResult(response);
-
         } catch (Exception e) {
             log.warn("HallucinationChecker.check failed message={}", e.getMessage());
             return new FaithfulnessResult(true, 0.5, "检测失败，默认通过");
@@ -74,11 +65,8 @@ public class HallucinationChecker {
         String[] lines = response.split("\n");
         for (String line : lines) {
             if (line.startsWith("忠实性分数：")) {
-                try {
-                    String numStr = line.replace("忠实性分数：", "").replaceAll("[^0-9]", "").strip();
-                    score = Double.parseDouble(numStr) / 10.0;
-                } catch (NumberFormatException ignored) {
-                }
+                String numStr = line.replace("忠实性分数：", "").replaceAll("[^0-9]", "").strip();
+                score = Double.parseDouble(numStr) / 10.0;
             } else if (line.startsWith("是否忠实：")) {
                 String value = line.replace("是否忠实：", "").strip();
                 faithful = "是".equals(value);
@@ -88,5 +76,13 @@ public class HallucinationChecker {
         }
 
         return new FaithfulnessResult(faithful, score, reason);
+    }
+
+    /**
+     * 幻觉检测结果
+     */
+    public record FaithfulnessResult(boolean isFaithful,
+                                     double score,
+                                     String reason) {
     }
 }
