@@ -1,6 +1,5 @@
 package com.jichi.ragkb.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jichi.ragkb.entity.ChatMessage;
 import com.jichi.ragkb.entity.ChatSession;
 import com.jichi.ragkb.repository.ChatMessageRepository;
@@ -27,9 +26,10 @@ import java.util.UUID;
 public class ChatSessionService {
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
-    private final ObjectMapper objectMapper;
 
-    /** 最多保留的历史轮数（超出后截断旧消息） */
+    /**
+     * 最多保留的历史轮数（超出后截断旧消息）
+     */
     private static final int MAX_HISTORY_ROUNDS = 5;
 
     /**
@@ -62,8 +62,7 @@ public class ChatSessionService {
      * 保存一轮对话（用户问题 + 助手回答）
      */
     @Transactional
-    public void saveMessage(String sessionId, String question, String answer,
-                             String sourcesJson, int latencyMs) {
+    public void saveMessage(String sessionId, String question, String answer, String sourcesJson, int latencyMs) {
         // 保存用户消息
         ChatMessage userMsg = new ChatMessage()
                 .setSessionId(sessionId)
@@ -97,15 +96,14 @@ public class ChatSessionService {
      * 最近 MAX_HISTORY_ROUNDS 轮，不含当前问题
      */
     public List<ChatMessage> getHistory(String sessionId) {
-        List<ChatMessage> all = chatMessageRepository
-                .findBySessionIdOrderByCreatedAtAsc(sessionId);
+        List<ChatMessage> chatMessageList = chatMessageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
 
         // 取最近的 N 轮（N * 2 条消息：用户 + 助手）
         int maxMessages = MAX_HISTORY_ROUNDS * 2;
-        if (all.size() > maxMessages) {
-            all = all.subList(all.size() - maxMessages, all.size());
+        if (chatMessageList.size() > maxMessages) {
+            chatMessageList = chatMessageList.subList(chatMessageList.size() - maxMessages, chatMessageList.size());
         }
-        return all;
+        return chatMessageList;
     }
 
     /**
