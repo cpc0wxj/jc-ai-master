@@ -41,11 +41,11 @@ public class ChatController {
 
     // 专用线程池处理 SSE 推送（避免占用 Tomcat 线程池）
     private final ExecutorService sseExecutor = Executors.newCachedThreadPool(
-            r -> {
-                Thread t = new Thread(r);
-                t.setName("sse-rag-" + t.getId());
-                t.setDaemon(true);
-                return t;
+            temp -> {
+                Thread thread = new Thread(temp);
+                thread.setName("sse-rag-" + thread.threadId());
+                thread.setDaemon(true);
+                return thread;
             }
     );
 
@@ -63,24 +63,25 @@ public class ChatController {
         // 创建或获取会话
         String sid = chatSessionService.getOrCreateSession(sessionId, kbIds);
 
-        SseEmitter emitter = new SseEmitter(60_000L);
+        SseEmitter sseEmitter = new SseEmitter(60_000L);
 
         // 捕获当前 HTTP 线程的用户上下文，传递给 SSE 线程
-        Long currentUserId = UserContext.getUserId();
-        String currentDeptId = UserContext.getDepartmentId();
-        String currentRole = UserContext.getRole();
+        Long userId = UserContext.getUserId();
+        String departmentId = UserContext.getDepartmentId();
+        String role = UserContext.getRole();
 
         sseExecutor.submit(() -> {
-            UserContext.set(currentUserId, currentDeptId, currentRole);
+            UserContext.set(userId, departmentId, role);
             try {
-                streamingRagService.streamQuery(question, kbIds, sid, emitter);
+                streamingRagService.streamQuery(question, kbIds, sid, sseEmitter);
             } catch (Exception e) {
                 log.error("ChatController.streamChat message={}", e.getMessage(), e);
                 try {
-                    emitter.send(SseEmitter.event()
+                    SseEmitter.SseEventBuilder sseEventBuilder = SseEmitter.event()
                             .name("error")
-                            .data("{\"message\":\"系统内部错误，请稍后重试\"}"));
-                    emitter.complete();
+                            .data("{\"message\":\"系统内部错误，请稍后重试\"}");
+                    sseEmitter.send(sseEventBuilder);
+                    sseEmitter.complete();
                 } catch (IOException ignored) {
                 }
             } finally {
@@ -88,7 +89,7 @@ public class ChatController {
             }
         });
 
-        return emitter;
+        return sseEmitter;
     }
 
     /**
@@ -96,7 +97,9 @@ public class ChatController {
      */
     @PostMapping
     public RagResponse syncChat(@RequestBody ChatRequest request) {
-        request.getKbIds().forEach(permissionService::requireRead);
+        for (Long kbId : request.getKbIds()) {
+            permissionService.requireRead(kbId);
+        }
         String sid = chatSessionService.getOrCreateSession(request.getSessionId(), request.getKbIds());
         return streamingRagService.syncQuery(request.getQuestion(), request.getKbIds(), sid);
     }

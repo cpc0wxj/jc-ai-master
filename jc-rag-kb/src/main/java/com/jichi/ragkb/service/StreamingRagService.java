@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jichi.ragkb.config.RerankerProperties;
 import com.jichi.ragkb.dto.RagResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -40,20 +42,19 @@ public class StreamingRagService {
     /**
      * 流式 RAG 查询，通过 SSE 推送结果
      */
+    @SneakyThrows
     public void streamQuery(String question, List<Long> kbIds, String sessionId, SseEmitter emitter) {
         long start = System.currentTimeMillis();
 
         try {
             // 多轮追问（有历史）不走缓存；仅首轮可缓存
-            List<Message> history = loadHistoryMessages(sessionId);
-            boolean cacheable = history.isEmpty();
+            List<Message> historyMessageList = loadHistoryMessages(sessionId);
 
             // 首轮才查缓存——命中则直接把完整答案一次性推给前端，跳过检索和生成
-            RagResponse cached = cacheable ? queryCacheService.getFromCache(question, kbIds) : null;
+            RagResponse cached = CollectionUtils.isEmpty(historyMessageList) ? queryCacheService.getFromCache(question, kbIds) : null;
             if (Objects.nonNull(cached)) {
                 emitter.send(SseEmitter.event().name("token").data(cached.getAnswer()));
-                String doneData = objectMapper.writeValueAsString(
-                        new DonePayload(cached.getSources(), 0));
+                String doneData = objectMapper.writeValueAsString(new DonePayload(cached.getSources(), 0));
                 emitter.send(SseEmitter.event().name("done").data(doneData));
                 emitter.complete();
                 chatSessionService.saveMessage(sessionId, question, cached.getAnswer(), sourceBuilder.sourcesToJson(cached.getSources()), 0);
@@ -61,24 +62,26 @@ public class StreamingRagService {
             }
 
             // 缓存未命中，走完整流式管道
-            emitter.send(SseEmitter.event()
+            SseEmitter.SseEventBuilder sseEventBuilder = SseEmitter.event()
                     .name("status")
-                    .data("{\"type\":\"RETRIEVING\",\"message\":\"正在检索知识库...\"}"));
+                    .data("{\"type\":\"RETRIEVING\",\"message\":\"正在检索知识库...\"}");
+            emitter.send(sseEventBuilder);
 
-            var candidates = enhancedRetrieverService.retrieveWithHyde(question, kbIds, 20);
-            var reranked = rerankerService.rerank(question, candidates, rerankerProperties.getTopN());
-            var filtered = confidenceFilter.filter(reranked);
+            List<HybridRetrieverService.ScoredChunk> candidates = enhancedRetrieverService.retrieveWithHyde(question, kbIds, 20);
+            List<HybridRetrieverService.ScoredChunk> reranked = rerankerService.rerank(question, candidates, rerankerProperties.getTopN());
+            List<HybridRetrieverService.ScoredChunk> filtered = confidenceFilter.filter(reranked);
 
-            if (filtered.isEmpty()) {
+            if (CollectionUtils.isEmpty(filtered)) {
                 sendNotFound(emitter);
                 return;
             }
 
-            var trimmed = contextTrimmerService.trim(filtered);
+            List<HybridRetrieverService.ScoredChunk> trimmed = contextTrimmerService.trim(filtered);
 
-            emitter.send(SseEmitter.event()
+            sseEventBuilder = SseEmitter.event()
                     .name("status")
-                    .data("{\"type\":\"GENERATING\",\"message\":\"已找到相关内容，正在生成回答...\"}"));
+                    .data("{\"type\":\"GENERATING\",\"message\":\"已找到相关内容，正在生成回答...\"}");
+            emitter.send(sseEventBuilder);
 
             String context = buildContext(trimmed);
             String systemPrompt = RagPromptTemplate.buildSystemPrompt(context, trimmed.size());
@@ -87,7 +90,7 @@ public class StreamingRagService {
 
             chatClient.prompt()
                     .system(systemPrompt)
-                    .messages(history)
+                    .messages(historyMessageList)
                     .user(question)
                     .stream()
                     .content()
@@ -112,7 +115,7 @@ public class StreamingRagService {
             chatSessionService.saveMessage(sessionId, question, answer, sourcesJson, latencyMs);
 
             // 只有首轮（无历史）才写缓存
-            if (cacheable) {
+            if (CollectionUtils.isEmpty(historyMessageList)) {
                 RagResponse response = new RagResponse()
                         .setAnswer(answer)
                         .setSources(sources)
@@ -121,18 +124,14 @@ public class StreamingRagService {
             }
 
             String doneData = objectMapper.writeValueAsString(new DonePayload(sources, latencyMs));
-            emitter.send(SseEmitter.event().name("done").data(doneData));
+            sseEventBuilder = SseEmitter.event().name("done").data(doneData);
+            emitter.send(sseEventBuilder);
             emitter.complete();
-
         } catch (Exception e) {
             log.error("StreamingRagService.streamQuery message={}", e.getMessage(), e);
-            try {
-                String errData = objectMapper.writeValueAsString(
-                        Map.of("message", "生成过程中出现异常"));
-                emitter.send(SseEmitter.event().name("error").data(errData));
-                emitter.complete();
-            } catch (IOException ignored) {
-            }
+            String errData = objectMapper.writeValueAsString(Map.of("message", "生成过程中出现异常"));
+            emitter.send(SseEmitter.event().name("error").data(errData));
+            emitter.complete();
         }
     }
 
